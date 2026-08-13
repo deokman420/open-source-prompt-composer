@@ -1,0 +1,16 @@
+# The Vercel CLI ignores .gitignore and honors ONLY this file, so anything that
+# must not be uploaded has to be listed here explicitly — even if git already
+# ignores it.
+node_modules
+.next
+out
+.git
+.env
+.env.local
+.env*.local
+tests
+scripts
+playwright.config.ts
+test-results
+playwright-report
+*.tsbuildinfo
