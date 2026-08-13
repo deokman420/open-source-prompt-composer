@@ -1,0 +1,754 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================================
+   phbeks.com design tokens — canonical source.
+   Mirrors prompt-site/style.css and the inline <style> on phbeks.com.
+   Do not introduce ad-hoc colors / fonts in component files; reference
+   these variables (or the Tailwind preset that wraps them).
+   ======================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg:              #0c0f16;
+  --bg-card:         #141820;
+  --bg-card-2:       #1a1f2b;
+  --bg-card-hover:   #1f2530;
+
+  /* Borders */
+  --border:          #1e2530;
+  --border-strong:   #2a3140;
+
+  /* Accent (teal) */
+  --accent:          #00d4aa;
+  --accent-dim:      rgba(0, 212, 170, 0.12);
+  --accent-soft:     rgba(0, 212, 170, 0.18);
+
+  /* Secondary hues */
+  --blue:            #3b82f6;
+  --purple:          #a855f7;
+  --orange:          #f59e0b;
+
+  /* Semantic */
+  --good:            #10b981;
+  --warn:            #f59e0b;
+  --bad:             #ef4444;
+
+  /* Text */
+  --text:            #e2e8f0;
+  --text-dim:        #8492a6;
+  --text-muted:      #4a5568;
+
+  /* Type */
+  --font: var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: var(--font-jbmono, 'JetBrains Mono'), ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* Shape */
+  --radius:          12px;
+  --radius-lg:       16px;
+  --shadow:          0 4px 14px rgba(0, 0, 0, 0.35);
+
+  /* Canonical backdrop (Option B) — see phbeks-tokens.css */
+  --backdrop: linear-gradient(180deg, rgba(0,212,170,0.05) 0%, transparent 42%),
+              radial-gradient(90% 60% at 100% 0%, rgba(59,130,246,0.05) 0%, transparent 55%),
+              var(--bg);
+}
+
+html, body {
+  background: var(--backdrop);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+a { color: var(--accent); text-decoration: none; transition: opacity 0.2s; }
+a:hover { opacity: 0.8; }
+
+/* Custom scrollbars, app-wide (Firefox + WebKit) */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-soft); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Anchor jumps clear the sticky top nav */
+[id^="help-"] { scroll-margin-top: 80px; }
+
+code, pre { font-family: var(--mono); }
+
+/* ------------------------------------------------------------------------
+   Shell + persistent top nav
+   ------------------------------------------------------------------------ */
+.shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.page { flex: 1; max-width: 1140px; width: 100%; margin: 0 auto; padding: 40px 24px 60px; }
+
+.topnav {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(12, 15, 22, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.topnav-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.brand {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.brand:hover { opacity: 1; color: var(--text); }
+.brand-prefix { color: var(--accent); font-weight: 500; }
+.brand-name { color: var(--text); font-weight: 600; }
+
+.topnav-links { display: flex; gap: 20px; flex: 1; flex-wrap: wrap; }
+/* Reserve the vault-status slot. The chip renders only after the vault store
+   hydrates from IndexedDB; without a reserved footprint the bar grows on
+   hydration and shifts the whole page down. min-height holds the row height;
+   min-width keeps .topnav-links from reclaiming then losing horizontal space
+   (which would re-wrap the nav). */
+.topnav-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-height: 1.75rem;
+  min-width: 6.5rem;
+}
+
+.topnav-link {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  padding: 6px 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.topnav-link:hover { color: var(--text); opacity: 1; border-bottom-color: var(--border-strong); }
+.topnav-link.is-active { color: var(--text); border-bottom-color: var(--accent); }
+
+.topnav-cta {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  transition: background 0.15s ease;
+}
+.topnav-cta:hover { background: var(--accent-dim); opacity: 1; }
+
+/* Mobile nav: hamburger trigger + left slide-out drawer (trigger shown ≤720px) */
+.nav-burger {
+  display: none; flex-direction: column; gap: 4px;
+  background: transparent; border: 0; padding: 8px 6px; cursor: pointer; border-radius: 8px;
+}
+.nav-burger span { display: block; width: 20px; height: 2px; background: var(--text-dim); border-radius: 2px; transition: background 0.15s ease; }
+.nav-burger:hover span { background: var(--text); }
+.nav-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 40;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+.nav-overlay.is-open { opacity: 1; pointer-events: auto; }
+.nav-drawer {
+  position: fixed; top: 0; left: 0; height: 100dvh; width: min(82vw, 300px); z-index: 41;
+  background: var(--bg-card); border-right: 1px solid var(--border-strong);
+  transform: translateX(-100%); transition: transform 0.22s ease;
+  display: flex; flex-direction: column; gap: 6px; overflow-y: auto;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+}
+.nav-drawer.is-open { transform: translateX(0); }
+.nav-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.nav-drawer-close {
+  background: transparent; border: 0; color: var(--text-dim); font-size: 1.1rem; line-height: 1;
+  cursor: pointer; padding: 6px 10px; border-radius: 8px;
+}
+.nav-drawer-close:hover { color: var(--text); background: var(--bg-card-hover); }
+.nav-drawer-links { display: flex; flex-direction: column; }
+.nav-drawer-links .topnav-link { padding: 13px 8px; border-bottom: 1px solid var(--border); font-size: 1rem; }
+.nav-drawer-links .topnav-link.is-active { color: var(--accent); }
+
+@media (max-width: 720px) {
+  .topnav-inner { gap: 12px; padding: 10px 16px; }
+  /* Higher specificity (.topnav .topnav-links) so this wins over /composer/style.css,
+     which is loaded after globals.css on /compose and re-shows the links otherwise. */
+  .topnav .topnav-links { display: none; }   /* collapsed into the drawer */
+  .nav-burger { display: inline-flex; }
+  /* The links carried flex:1; with them hidden, push Account + the profile
+     button to the far right corner instead of bunching beside the brand. */
+  .topnav-right { margin-left: auto; }
+  .page { padding: 28px 16px 48px; }
+  /* Help TOC: a clean sticky bar flush under the 55px header (collapsed by
+     default via HelpTocMobile). top:55 + margin:0 + squared top corners close
+     the gap that previously let body text peek through and read as overlap;
+     the shadow makes it clearly sit above the scrolling content. */
+  .help-toc-card {
+    position: sticky; top: 55px; z-index: 10;
+    margin: 0 0 4px; max-height: 70vh; overflow-y: auto;
+    border-top-left-radius: 0; border-top-right-radius: 0;
+    border-top: 0;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* ------------------------------------------------------------------------
+   Footer (mirrors the free composer footer at prompt.phbeks.com)
+   ------------------------------------------------------------------------ */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 28px 0 36px;
+  padding-bottom: calc(36px + env(safe-area-inset-bottom));
+}
+.footer-inner {
+  max-width: 1140px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.footer-brand { font-weight: 500; }
+.footer-brand a { color: var(--accent); }
+.footer-version {
+  font-family: var(--mono);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.footer-meta {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 11.5px;
+}
+.footer-disclaimer { color: var(--text-muted); max-width: 640px; line-height: 1.5; }
+.footer-links { color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.footer-links a { color: var(--text-dim); }
+.footer-links a:hover { color: var(--accent); opacity: 1; }
+
+@media (max-width: 720px) {
+  .footer-inner { padding: 0 16px; }
+  .footer-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+/* ------------------------------------------------------------------------
+   Typography helpers
+   ------------------------------------------------------------------------ */
+.page-h1 {
+  font-size: clamp(1.75rem, 4vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.page-sub {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 56ch;
+}
+.label-mono {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+.muted { color: var(--text-dim); }
+.muted-strong { color: var(--text-muted); }
+
+/* ------------------------------------------------------------------------
+   Card / surface
+   ------------------------------------------------------------------------ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.card-lg { padding: 28px; border-radius: var(--radius-lg); }
+.card-quiet { background: transparent; border-color: var(--border); }
+.card-dashed { border-style: dashed; }
+.card-accent {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------------
+   Buttons
+   ------------------------------------------------------------------------ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+  line-height: 1.2;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) { opacity: 0.9; }
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-card-hover); border-color: var(--border-strong); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: transparent;
+  padding: 6px 10px;
+}
+.btn-ghost:hover:not(:disabled) { color: var(--text); background: var(--bg-card); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--bad);
+  border-color: var(--border);
+}
+.btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); border-color: var(--bad); }
+
+/* ------------------------------------------------------------------------
+   Banners (success / warn / error / info)
+   ------------------------------------------------------------------------ */
+.banner {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.banner-success { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.banner-warn    { border-color: var(--warn);   background: rgba(245, 158, 11, 0.12); color: var(--warn); }
+.banner-error   { border-color: var(--bad);    background: rgba(239, 68, 68, 0.10);  color: var(--bad); }
+.banner-info    { border-color: var(--blue);   background: rgba(59, 130, 246, 0.10); color: var(--blue); }
+.banner code { background: rgba(0, 0, 0, 0.25); padding: 1px 5px; border-radius: 4px; }
+
+/* ------------------------------------------------------------------------
+   Live-preview chrome — ported from /composer/style.css so the Orchestra
+   and Context preview panels match the Compose master exactly (design
+   tokens, teal copy buttons). Compose itself still loads /composer/style.css;
+   these classes back orchestra/LivePreview.tsx + context/PipelinePreview.tsx.
+   ------------------------------------------------------------------------ */
+.preview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 32px);
+  /* On a short viewport the fixed rows + the min-height preview text can exceed
+     max-height; scroll the card instead of letting padding/buttons spill past
+     the rounded border. min-width:0 lets it shrink inside a narrow grid track
+     rather than forcing horizontal overflow. */
+  overflow-y: auto;
+  min-width: 0;
+}
+.preview-header { display: flex; justify-content: space-between; align-items: baseline; }
+.preview-header h2 {
+  margin: 0; font-size: 14px; font-family: var(--mono); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+}
+.token-est {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.04em; cursor: help;
+}
+.token-est-suffix { color: var(--text-muted); font-size: 9.5px; margin-left: 2px; font-style: italic; }
+.fmt-caption { margin: 0; font-size: 11px; color: var(--text-muted); font-style: italic; }
+.preview-text {
+  background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px;
+  padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+  white-space: pre-wrap; word-wrap: break-word; margin: 0; min-height: 240px;
+  flex: 1; overflow-y: auto; color: var(--text);
+}
+.preview-meta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0; }
+.preview-meta-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.preview-meta-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--text-muted);
+}
+.fmt-select, .model-select {
+  width: 100%; background: var(--bg-card-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 30px 7px 12px; font-family: inherit; font-size: 13px;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.fmt-select:hover, .model-select:hover { border-color: var(--accent); }
+.fmt-select:focus, .model-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.fmt-select option, .fmt-select optgroup, .model-select option { background: var(--bg-card); color: var(--text); }
+.fmt-select optgroup {
+  font-family: var(--mono); font-size: 11px; color: var(--text-muted); font-style: normal;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+/* Orchestra agent slot fields: grow with their content (multi-line role/goal/
+   context easily exceed two rows) instead of cramming text into a short box.
+   field-sizing is progressive — browsers without it fall back to rows + min. */
+.orch-slot {
+  min-height: 4.75rem;
+  max-height: 18rem;
+  resize: vertical;
+  line-height: 1.45;
+  field-sizing: content;
+}
+
+.preview-actions { display: flex; gap: 8px; }
+.copy-btn {
+  background: var(--bg-card-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease; font-family: inherit; flex: 1;
+}
+.copy-btn:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+.copy-btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.copy-btn.primary:hover { background: var(--accent); filter: brightness(1.08); }
+.copy-btn.copied { color: var(--accent); border-color: var(--accent); background: var(--bg-card-2); }
+.copy-btn.primary.copied { background: var(--good); color: var(--bg); border-color: var(--good); }
+.send-eval-btn { width: 100%; margin-top: 8px; flex: none; }
+.preview-hint { margin: 0; font-size: 11px; color: var(--text-muted); text-align: center; }
+
+/* Domain-specific health panel (Orchestra score + issues, Context checks) */
+.preview-health { display: flex; align-items: baseline; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; }
+.preview-health-score { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.preview-issues { margin: 0; padding-left: 18px; font-size: 11px; color: var(--warn); display: flex; flex-direction: column; gap: 2px; }
+.preview-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.preview-check { display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: var(--text-dim); }
+.preview-check-dot { margin-top: 5px; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.preview-check-detail { color: var(--text-muted); }
+
+@media (max-width: 920px) { .preview-card { position: static; max-height: none; } }
+@media (max-width: 720px) {
+  .preview-card { padding: 14px; }
+  .preview-text { font-size: 12px; padding: 12px; min-height: 180px; }
+  .preview-actions { flex-direction: column; }
+  .copy-btn { min-height: 44px; }
+}
+@media (max-width: 700px) {
+  .preview-meta-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .preview-meta-field { flex: 1 1 auto; }
+}
+
+/* ------------------------------------------------------------------------
+   Form controls
+   ------------------------------------------------------------------------ */
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--bg-card-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-family: var(--font);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.textarea { font-family: var(--mono); resize: vertical; min-height: 140px; }
+.field-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  margin-bottom: 6px;
+}
+
+/* ------------------------------------------------------------------------
+   Description list (account dashboard rows)
+   ------------------------------------------------------------------------ */
+.dl-rows { display: flex; flex-direction: column; gap: 18px; }
+.dl-row { display: flex; flex-direction: column; gap: 4px; }
+.dl-row dt {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+}
+.dl-row dd { font-size: 0.95rem; color: var(--text); }
+.dl-row dd code { font-size: 0.85rem; color: var(--text-dim); }
+
+/* ------------------------------------------------------------------------
+   Loading skeleton
+   ------------------------------------------------------------------------ */
+@keyframes phb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.skeleton {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  animation: phb-pulse 1.5s ease-in-out infinite;
+}
+.skeleton-line { height: 14px; margin: 8px 0; }
+.skeleton-line.short { width: 35%; }
+.skeleton-line.mid   { width: 65%; }
+.skeleton-line.long  { width: 90%; }
+.skeleton-block { height: 80px; }
+
+/* ------------------------------------------------------------------------
+   Dashboard cards (signed-in landing)
+   ------------------------------------------------------------------------ */
+.dashboard-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  color: var(--text);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.dash-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  opacity: 1;
+  transform: translateY(-1px);
+}
+.dash-card-accent {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+.dash-card-title { font-size: 1.05rem; font-weight: 600; }
+.dash-card-body { font-size: 0.875rem; color: var(--text-dim); line-height: 1.55; }
+.dash-card-cta { font-size: 0.82rem; color: var(--accent); margin-top: 4px; }
+
+/* ------------------------------------------------------------------------
+   Pricing grid
+   ------------------------------------------------------------------------ */
+.pricing-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) {
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ------------------------------------------------------------------------
+   Help cards
+   ------------------------------------------------------------------------ */
+/* Desktop only — mobile gets a flush sticky bar (see ≤720px block above). */
+/* Desktop: the TOC follows you down the page (Nathan's bug — it used to scroll
+   away). Sticky under the 55px header, bounded height with its own scroll so a
+   long open list never eats the viewport; solid card bg + shadow keep body text
+   from reading through it. It stays <details open> here (unlike mobile, which
+   force-collapses via HelpTocMobile). */
+@media (min-width: 721px) {
+  .help-toc-card {
+    margin-top: 20px;
+    position: sticky; top: 55px; z-index: 10;
+    max-height: calc(100vh - 75px); overflow-y: auto;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* TOC anchor targets clear the 55px sticky header (plus the collapsed sticky
+   TOC bar on mobile) so a tapped link doesn't land the section underneath. */
+section[id^="help-"] { scroll-margin-top: 72px; }
+@media (max-width: 720px) { section[id^="help-"] { scroll-margin-top: 112px; } }
+.help-cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) {
+  .help-cards { grid-template-columns: 1fr 1fr; }
+}
+.help-card pre code { color: inherit; }
+/* Mobile: keep cards within the viewport. A grid item defaults to min-width:auto
+   (min-content), so an unwrapped <pre> would widen the card past the screen and
+   clip the text. Let the card shrink, scroll long code blocks inside it, and
+   break long tokens in prose. */
+.help-card { min-width: 0; }
+.help-card pre { overflow-x: auto; max-width: 100%; }
+.help-card p, .help-card li { overflow-wrap: break-word; }
+
+/* ------------------------------------------------------------------------
+   Eval form grid (provider + mode)
+   ------------------------------------------------------------------------ */
+@media (max-width: 540px) {
+  .eval-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ------------------------------------------------------------------------
+   Help Chat — mobile-only layout fixes (desktop untouched)
+   ------------------------------------------------------------------------ */
+/* Transcript height is set here so the mobile query can override it cleanly. */
+.help-chat-transcript { max-height: 420px; }
+
+@media (max-width: 720px) {
+  /* Tighter card edges on a small screen. */
+  .help-chat-card { padding: 14px; }
+  /* Shorter transcript so the composer and header stay in view together. */
+  .help-chat-transcript { max-height: 260px; }
+  /* Suggestion chips become full-width tap targets on mobile. */
+  .help-chat-suggestions { flex-direction: column; }
+  .help-chat-suggestions .btn { width: 100%; justify-content: flex-start; }
+  /* iOS Safari zooms the viewport on focus for any input whose computed
+     font-size is below 16px. Both .select (0.875rem) and .textarea (0.875rem)
+     are under that threshold; bump to 1rem within the help chat only. */
+  .help-chat-card .select,
+  .help-chat-composer .textarea { font-size: 1rem; }
+  /* The global .textarea sets min-height:140px for full-page editors.
+     The 2-row composer doesn't need it and wastes vertical space on a phone.
+     Also kill the resize handle — dragging a textarea height is a desktop
+     gesture that looks broken on iOS (shows as grabbable circles). */
+  .help-chat-composer .textarea { min-height: 0; resize: none; }
+}
+
+/* ------------------------------------------------------------------------
+   Onboarding ordered list (account welcome strip)
+   ------------------------------------------------------------------------ */
+.onboarding-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  counter-reset: phb-step;
+}
+.onboarding-list li {
+  counter-increment: phb-step;
+  padding: 12px 16px 12px 48px;
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.onboarding-list li::before {
+  content: counter(phb-step);
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------------------
+   Vault gate — the create / unlock screen that stands in for sign-in
+   ------------------------------------------------------------------------ */
+.auth-shell {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+.vault-card {
+  width: 100%;
+  max-width: 30rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+.vault-card h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.vault-card p {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+.vault-card .field { margin-bottom: 16px; }
+.vault-card label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.vault-error {
+  color: var(--bad);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+/* Lock state chip in the top nav. */
+.vault-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+}
+.vault-chip[data-state="unlocked"] { color: var(--accent); border-color: var(--accent-soft); }
+.vault-chip[data-state="locked"]   { color: var(--warn);   border-color: rgba(245,158,11,0.3); }
+.vault-chip button {
+  background: none; border: none; color: inherit; cursor: pointer;
+  font: inherit; padding: 0; opacity: 0.7;
+}
+.vault-chip button:hover { opacity: 1; }
