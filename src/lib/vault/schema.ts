@@ -31,7 +31,7 @@ export type Draft = {
   title: string;
   body: string;
   /** Which surface produced it — drives the tab it appears under in /drafts. */
-  kind: "compose" | "orchestra" | "context-pipeline" | "loop";
+  kind: "compose" | "orchestra" | "context-pipeline" | "loop" | "tool" | "eval";
   tags: string[];
   createdAt: string;
   updatedAt: string;
