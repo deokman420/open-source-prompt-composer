@@ -6,7 +6,7 @@
   "description": "Local-first prompt engineering workbench. Bring your own API key; everything stays encrypted in your browser.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deokman420/prompt-composer.git"
+    "url": "https://github.com/deokman420/open-source-prompt-composer.git"
   },
   "scripts": {
     "dev": "next dev",

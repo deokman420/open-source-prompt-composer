@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const REPO = "https://github.com/deokman420/prompt-composer";
+const REPO = "https://github.com/deokman420/open-source-prompt-composer";
 
 export default function Footer() {
   return (

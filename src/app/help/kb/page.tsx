@@ -277,8 +277,8 @@ export default function HelpKbPage() {
 
       <p className="muted-strong" style={{ marginTop: "48px", fontSize: "0.78rem" }}>
         Prompt Composer is open source (MIT) at{" "}
-        <a href="https://github.com/deokman420/prompt-composer" rel="noopener">
-          github.com/deokman420/prompt-composer ↗
+        <a href="https://github.com/deokman420/open-source-prompt-composer" rel="noopener">
+          github.com/deokman420/open-source-prompt-composer ↗
         </a>.
       </p>
     </section>
