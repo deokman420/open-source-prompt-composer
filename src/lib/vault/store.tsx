@@ -150,13 +150,28 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   /**
    * Encrypt (if protected) and write. Chained off the previous save so two
    * rapid edits can't race to be the last writer.
+   *
+   * The passphrase is snapshotted HERE, at call time — not inside `run`.
+   *
+   * `run` executes later, off the promise chain. Reading the ref from inside it
+   * meant a caller that queued a write and then changed the passphrase ref
+   * synchronously would have its write performed under the NEW value. lock()
+   * does exactly that: it flushes a pending save and then immediately nulls the
+   * ref, so the flush saw `null`, took the unencrypted branch, and rewrote the
+   * vault as `{ protected: false, doc }` — plaintext API keys on disk, while
+   * the UI still showed the lock screen. Unlock then reported "No protected
+   * vault found in this browser", because by then there genuinely wasn't one.
+   *
+   * Snapshotting binds each write to the protection state in effect when it was
+   * requested, which is the only interpretation that can't silently downgrade
+   * encryption.
    */
   const persist = useCallback(
     (next: VaultDoc): Promise<void> => {
+      const pass = passphraseRef.current;
       const run = async () => {
         setSaving(true);
         try {
-          const pass = passphraseRef.current;
           if (pass) {
             const envelope = await encryptJson(next, pass, saltRef.current);
             saltRef.current = envelope.salt;
