@@ -48,6 +48,14 @@ There is **no passphrase recovery**. Nobody holds a copy — not this site, not
 anyone. A forgotten passphrase means the vault cannot be opened, by anyone,
 ever. That is the point, and it is also a real risk: export a backup.
 
+**Backups are always encrypted.** Export requires a passphrase; there is no
+plaintext option. A backup file is the one copy of this data that leaves the
+browser and lands somewhere durable — a Downloads folder, a synced directory, a
+USB stick — which is exactly where cleartext API keys would do the most damage.
+
+**Removing encryption requires the current passphrase**, so someone who finds an
+unlocked tab can't strip protection and read the keys without knowing it.
+
 Encryption is opt-in rather than forced. Unprotected still never leaves your
 device, but it *is* readable by anyone with access to your browser profile. The
 app says so plainly rather than deciding for you.

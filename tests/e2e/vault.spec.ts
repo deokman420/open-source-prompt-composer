@@ -140,6 +140,75 @@ test.describe("vault", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 
+  test("removing encryption requires the current passphrase", async ({ page }) => {
+    await encryptVault(page);
+    await page.waitForTimeout(1_000);
+
+    // Wrong passphrase must not strip encryption.
+    page.once("dialog", (d) => d.accept());
+    await page.locator("#remove-pass").fill("not-the-passphrase");
+    await page.getByRole("button", { name: "Remove encryption" }).click();
+    await expect(
+      page.getByText("Wrong passphrase — encryption was not removed.")
+    ).toBeVisible();
+
+    let rec = await readRecord(page);
+    expect(rec?.protected, "encryption stripped without the passphrase").toBe(true);
+
+    // The real passphrase does remove it.
+    page.once("dialog", (d) => d.accept());
+    await page.locator("#remove-pass").fill(PASSPHRASE);
+    await page.getByRole("button", { name: "Remove encryption" }).click();
+    await expect(page.getByText(/Encryption removed/)).toBeVisible();
+
+    await page.waitForTimeout(1_500);
+    rec = await readRecord(page);
+    expect(rec?.protected).toBe(false);
+  });
+
+  test("backups are always encrypted", async ({ page }) => {
+    // Something identifiable must exist in the vault to look for in the file.
+    await page.getByRole("button", { name: "Add key" }).first().click();
+    await page.locator('input[placeholder^="Paste your"]').first().fill(FAKE_KEY);
+    await page.getByRole("button", { name: "Save", exact: true }).first().click();
+    await page.waitForTimeout(1_000);
+
+    const downloadBtn = page.getByRole("button", { name: "Download encrypted backup" });
+
+    // No passphrase, or too short, or mismatched → export stays disabled.
+    await expect(downloadBtn).toBeDisabled();
+    await page.locator("#export-pass").fill("short");
+    await expect(downloadBtn).toBeDisabled();
+    await page.locator("#export-pass").fill("backup-passphrase");
+    await page.locator('input[placeholder="Confirm passphrase"]').fill("different");
+    await expect(downloadBtn).toBeDisabled();
+
+    await page.locator('input[placeholder="Confirm passphrase"]').fill("backup-passphrase");
+    await expect(downloadBtn).toBeEnabled();
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      downloadBtn.click(),
+    ]);
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const c of stream) chunks.push(c as Buffer);
+    const contents = Buffer.concat(chunks).toString("utf8");
+
+    const parsed = JSON.parse(contents);
+    expect(parsed.encrypted).toBe(true);
+    expect(parsed.envelope?.alg).toBe("AES-GCM-256");
+    expect(parsed.doc, "backup contained a plaintext document").toBeUndefined();
+    expect(contents, "API key written into the backup in cleartext").not.toContain(FAKE_KEY);
+  });
+
+  test("the footer carries a build stamp", async ({ page }) => {
+    const version = page.locator(".footer-version");
+    await expect(version).toBeVisible();
+    // v<semver> · <sha> · <yyyy-mm-dd>
+    await expect(version).toHaveText(/^v\d+\.\d+\.\d+ · \S+ · \d{4}-\d{2}-\d{2}$/);
+  });
+
   test("a protected vault survives a reload and gates the app", async ({ page }) => {
     await encryptVault(page);
     await page.waitForTimeout(1_500);

@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useVault } from "@/lib/vault/store";
+import { useVault, MIN_PASSPHRASE_LENGTH } from "@/lib/vault/store";
 
 /**
  * Encryption, backup, and erasure.
  *
- * The destructive controls (unprotect, import, wipe) all require an explicit
- * second step, because every one of them can lose data that exists in exactly
- * one place with no server-side copy to fall back on.
+ * Every control here can destroy or expose data that exists in exactly one
+ * place, so each one is gated on something more than a single click:
+ * removing encryption requires the current passphrase, exporting requires a
+ * passphrase to encrypt with, and erasing requires typing a confirmation word.
  */
 export default function VaultPanel() {
   const { isProtected, protect, unprotect, exportVault, importVault, wipe } = useVault();
@@ -35,7 +36,7 @@ function ProtectionCard({
 }: {
   isProtected: boolean;
   onProtect: (p: string) => Promise<void>;
-  onUnprotect: () => Promise<void>;
+  onUnprotect: (p: string) => Promise<void>;
 }) {
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -44,9 +45,14 @@ function ProtectionCard({
   const [note, setNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Removing encryption is a separate, separately-gated action.
+  const [removePass, setRemovePass] = useState("");
+  const [removing, setRemoving] = useState(false);
+
   const mismatch = confirm.length > 0 && pass !== confirm;
-  const tooShort = pass.length > 0 && pass.length < 8;
-  const canSubmit = pass.length >= 8 && pass === confirm && !busy;
+  const tooShort = pass.length > 0 && pass.length < MIN_PASSPHRASE_LENGTH;
+  const canSubmit =
+    pass.length >= MIN_PASSPHRASE_LENGTH && pass === confirm && !busy;
 
   async function apply() {
     if (!canSubmit) return;
@@ -66,21 +72,30 @@ function ProtectionCard({
   }
 
   async function remove() {
+    if (!removePass || removing) return;
     if (
       !window.confirm(
         "Remove encryption? Your keys and prompts will be stored unencrypted in this browser."
       )
     )
       return;
-    setBusy(true);
+    setRemoving(true);
     setErr(null);
+    setNote(null);
     try {
-      await onUnprotect();
+      await onUnprotect(removePass);
+      setRemovePass("");
       setNote("Encryption removed. Data is stored unencrypted on this device.");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to remove encryption.");
+      setErr(
+        e instanceof Error && e.name === "WrongPassphraseError"
+          ? "Wrong passphrase — encryption was not removed."
+          : e instanceof Error
+            ? e.message
+            : "Failed to remove encryption."
+      );
     } finally {
-      setBusy(false);
+      setRemoving(false);
     }
   }
 
@@ -128,7 +143,7 @@ function ProtectionCard({
           />
           {tooShort && (
             <span className="muted" style={{ fontSize: "0.75rem" }}>
-              At least 8 characters.
+              At least {MIN_PASSPHRASE_LENGTH} characters.
             </span>
           )}
         </div>
@@ -157,15 +172,10 @@ function ProtectionCard({
           Show passphrase
         </label>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div>
           <button type="button" className="btn btn-primary" onClick={apply} disabled={!canSubmit}>
             {isProtected ? "Change passphrase" : "Encrypt vault"}
           </button>
-          {isProtected && (
-            <button type="button" className="btn btn-danger" onClick={remove} disabled={busy}>
-              Remove encryption
-            </button>
-          )}
         </div>
       </div>
 
@@ -174,6 +184,47 @@ function ProtectionCard({
         it cannot be reset — if you forget it, the vault is unreadable. Export a
         backup below before you rely on it.
       </p>
+
+      {isProtected && (
+        <div
+          style={{
+            marginTop: 24,
+            paddingTop: 20,
+            borderTop: "1px solid var(--border)",
+            maxWidth: 420,
+          }}
+        >
+          <label className="field-label" htmlFor="remove-pass">
+            Remove encryption
+          </label>
+          <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 8 }}>
+            Enter your current passphrase to confirm. Without this, anyone who
+            finds an unlocked tab could strip encryption and read your keys
+            without ever knowing it.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input
+              id="remove-pass"
+              className="input"
+              type="password"
+              value={removePass}
+              onChange={(e) => setRemovePass(e.target.value)}
+              placeholder="Current passphrase"
+              autoComplete="current-password"
+              spellCheck={false}
+              style={{ flex: 1, minWidth: 180 }}
+            />
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={remove}
+              disabled={!removePass || removing}
+            >
+              {removing ? "Checking…" : "Remove encryption"}
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -184,21 +235,31 @@ function BackupCard({
   onExport,
   onImport,
 }: {
-  onExport: (p?: string) => Promise<string>;
+  onExport: (p: string) => Promise<string>;
   onImport: (json: string, p?: string) => Promise<void>;
 }) {
   const [exportPass, setExportPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
   const [importPass, setImportPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const exportTooShort =
+    exportPass.length > 0 && exportPass.length < MIN_PASSPHRASE_LENGTH;
+  const exportMismatch = confirmPass.length > 0 && exportPass !== confirmPass;
+  const canExport =
+    exportPass.length >= MIN_PASSPHRASE_LENGTH &&
+    exportPass === confirmPass &&
+    !busy;
+
   async function doExport() {
+    if (!canExport) return;
     setBusy(true);
     setErr(null);
     try {
-      const json = await onExport(exportPass || undefined);
+      const json = await onExport(exportPass);
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -208,11 +269,10 @@ function BackupCard({
       a.click();
       URL.revokeObjectURL(url);
       setNote(
-        exportPass
-          ? "Encrypted backup downloaded."
-          : "Backup downloaded — it is NOT encrypted, and contains your API keys in plain text."
+        "Encrypted backup downloaded. Store the passphrase somewhere safe — the file is unreadable without it."
       );
       setExportPass("");
+      setConfirmPass("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Export failed.");
     } finally {
@@ -225,8 +285,10 @@ function BackupCard({
       !window.confirm(
         "Importing replaces everything currently in this browser — prompts, drafts, and keys. Continue?"
       )
-    )
+    ) {
+      if (fileRef.current) fileRef.current.value = "";
       return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -257,32 +319,57 @@ function BackupCard({
       )}
       {err && <p className="vault-error">{err}</p>}
 
-      <div style={{ display: "grid", gap: 20, maxWidth: 460 }}>
+      <div style={{ display: "grid", gap: 24, maxWidth: 460 }}>
         <div>
           <label className="field-label" htmlFor="export-pass">
-            Export passphrase (optional but recommended)
+            Backup passphrase (required)
           </label>
-          <input
-            id="export-pass"
-            className="input"
-            type="password"
-            value={exportPass}
-            onChange={(e) => setExportPass(e.target.value)}
-            placeholder="Leave blank for an unencrypted file"
-            autoComplete="off"
-          />
-          <p className="muted" style={{ fontSize: "0.75rem", marginTop: 6 }}>
-            This can differ from your vault passphrase; it&rsquo;s used only for
-            this file and never becomes your session key.
+          <p className="muted" style={{ fontSize: "0.75rem", marginBottom: 8 }}>
+            Backups are always encrypted. A backup file leaves this browser and
+            lands somewhere durable — Downloads, a synced folder, a USB stick —
+            so writing your API keys into it in the clear would undo the point of
+            the vault. This can differ from your vault passphrase; it is used
+            only for this file and never becomes your session key.
           </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            <input
+              id="export-pass"
+              className="input"
+              type="password"
+              value={exportPass}
+              onChange={(e) => setExportPass(e.target.value)}
+              placeholder="Passphrase for this file"
+              autoComplete="new-password"
+              spellCheck={false}
+            />
+            {exportTooShort && (
+              <span className="muted" style={{ fontSize: "0.75rem" }}>
+                At least {MIN_PASSPHRASE_LENGTH} characters.
+              </span>
+            )}
+            <input
+              className="input"
+              type="password"
+              value={confirmPass}
+              onChange={(e) => setConfirmPass(e.target.value)}
+              placeholder="Confirm passphrase"
+              autoComplete="new-password"
+              spellCheck={false}
+            />
+            {exportMismatch && (
+              <span style={{ color: "var(--bad)", fontSize: "0.75rem" }}>
+                Passphrases don&rsquo;t match.
+              </span>
+            )}
+          </div>
           <button
             type="button"
             className="btn btn-secondary"
             onClick={doExport}
-            disabled={busy}
-            style={{ marginTop: 8 }}
+            disabled={!canExport}
+            style={{ marginTop: 10 }}
           >
-            Download backup
+            Download encrypted backup
           </button>
         </div>
 
@@ -296,8 +383,9 @@ function BackupCard({
             type="password"
             value={importPass}
             onChange={(e) => setImportPass(e.target.value)}
-            placeholder="Passphrase, if the file is encrypted"
+            placeholder="That file's passphrase"
             autoComplete="off"
+            spellCheck={false}
           />
           <input
             ref={fileRef}

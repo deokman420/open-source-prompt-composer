@@ -36,6 +36,7 @@ import {
   encryptForExport,
   encryptJson,
   isEnvelope,
+  verifyPassphrase,
   WrongPassphraseError,
   type Envelope,
 } from "./crypto";
@@ -43,6 +44,9 @@ import { emptyVault, migrate, SCHEMA_VERSION, type VaultDoc } from "./schema";
 
 const RECORD_KEY = "doc";
 const SAVE_DEBOUNCE_MS = 400;
+
+/** Shared floor for every passphrase the app accepts (vault and backups). */
+export const MIN_PASSPHRASE_LENGTH = 8;
 
 /** What actually sits in IndexedDB. */
 type StoredRecord =
@@ -69,10 +73,10 @@ export type VaultApi = {
   update: (fn: (doc: VaultDoc) => VaultDoc) => void;
   /** Add or change the at-rest passphrase. */
   protect: (passphrase: string) => Promise<void>;
-  /** Remove passphrase protection, leaving the vault in plaintext at rest. */
-  unprotect: () => Promise<void>;
-  /** Serialize to a downloadable backup, optionally sealed with its own passphrase. */
-  exportVault: (passphrase?: string) => Promise<string>;
+  /** Remove passphrase protection. Requires the current passphrase. */
+  unprotect: (passphrase: string) => Promise<void>;
+  /** Serialize to a downloadable backup. Always encrypted; passphrase required. */
+  exportVault: (passphrase: string) => Promise<string>;
   /** Replace the vault from a backup file. Destructive. */
   importVault: (json: string, passphrase?: string) => Promise<void>;
   /** Erase everything from this browser. */
@@ -299,30 +303,65 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     [doc, persist]
   );
 
-  const unprotect = useCallback(async () => {
-    if (!doc) throw new Error("Unlock the vault first.");
-    passphraseRef.current = null;
-    saltRef.current = undefined;
-    clearKeyCache();
-    setIsProtected(false);
-    await persist(doc);
-  }, [doc, persist]);
-
-  const exportVault = useCallback(
-    async (passphrase?: string) => {
+  /**
+   * Remove passphrase protection — requires the current passphrase.
+   *
+   * An unlocked tab left unattended is the threat here. Without this check,
+   * anyone who walks up to an open session can strip encryption in two clicks
+   * and read the API keys straight off disk, without ever knowing the
+   * passphrase. Verification is against the stored envelope rather than the
+   * in-memory session value, so it holds even if the ref were somehow stale.
+   */
+  const unprotect = useCallback(
+    async (passphrase: string) => {
       if (!doc) throw new Error("Unlock the vault first.");
-      const payload = {
-        app: "prompt-composer",
-        schemaVersion: SCHEMA_VERSION,
-        exportedAt: new Date().toISOString(),
-      };
-      if (passphrase) {
-        // encryptForExport, NOT encryptJson: a one-off backup passphrase must
-        // never be adopted as the session key.
-        const envelope = await encryptForExport(doc, passphrase);
-        return JSON.stringify({ ...payload, encrypted: true, envelope }, null, 2);
+
+      const record = await idbGet<StoredRecord>(RECORD_KEY);
+      if (record?.protected) {
+        const ok = await verifyPassphrase(record.envelope, passphrase);
+        if (!ok) throw new WrongPassphraseError();
       }
-      return JSON.stringify({ ...payload, encrypted: false, doc }, null, 2);
+
+      passphraseRef.current = null;
+      saltRef.current = undefined;
+      clearKeyCache();
+      setIsProtected(false);
+      await persist(doc);
+    },
+    [doc, persist]
+  );
+
+  /**
+   * Serialize to a backup file. Always encrypted — a passphrase is required.
+   *
+   * A backup is the one copy of this data that leaves the browser's storage and
+   * lands somewhere durable: a Downloads folder, a cloud-synced directory, a USB
+   * stick, an email to yourself. Writing API keys there in cleartext undoes the
+   * whole point of the vault, and it does so at exactly the moment the data is
+   * most likely to be handled carelessly. So there is no unencrypted option.
+   */
+  const exportVault = useCallback(
+    async (passphrase: string) => {
+      if (!doc) throw new Error("Unlock the vault first.");
+      if (!passphrase || passphrase.length < MIN_PASSPHRASE_LENGTH) {
+        throw new Error(
+          `Backups are always encrypted — choose a passphrase of at least ${MIN_PASSPHRASE_LENGTH} characters.`
+        );
+      }
+      // encryptForExport, NOT encryptJson: a one-off backup passphrase must
+      // never be adopted as the session key.
+      const envelope = await encryptForExport(doc, passphrase);
+      return JSON.stringify(
+        {
+          app: "prompt-composer",
+          schemaVersion: SCHEMA_VERSION,
+          exportedAt: new Date().toISOString(),
+          encrypted: true,
+          envelope,
+        },
+        null,
+        2
+      );
     },
     [doc]
   );
