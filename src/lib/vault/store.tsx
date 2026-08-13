@@ -104,6 +104,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
 
+  // Latest document, readable from callbacks that must not re-bind on every
+  // edit (the unload flush below, and lock()).
+  const docRef = useRef<VaultDoc | null>(doc);
+  docRef.current = doc;
+
   /* ---------------------------------------------------------------- *
    * Boot
    * ---------------------------------------------------------------- */
@@ -188,12 +193,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   // A debounced write pending at unload would be lost. Flush it synchronously
   // enough to matter: clearing the timer and firing immediately gives the
   // encrypt+put a chance to complete during the unload task.
+  //
+  // This effect must NOT depend on `doc`. An earlier version did, which made
+  // React tear down and re-run it on every single edit — and the teardown ran
+  // flush(), which cancelled the save timer `update()` had just scheduled and
+  // wrote the doc captured in the *previous* render's closure. The newest
+  // change was silently dropped on every write, and the vault trailed one edit
+  // behind whatever was on screen. Hence the ref: `persist` is stable, so the
+  // effect mounts once and the flush always sees the current document.
   useEffect(() => {
     const flush = () => {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
         saveTimer.current = null;
-        if (doc) void persist(doc);
+        if (docRef.current) void persist(docRef.current);
       }
     };
     window.addEventListener("pagehide", flush);
@@ -201,7 +214,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("pagehide", flush);
       flush();
     };
-  }, [doc, persist]);
+  }, [persist]);
 
   /* ---------------------------------------------------------------- *
    * Commands
@@ -243,17 +256,20 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Reads the document through the ref so its identity stays stable across
+  // edits — otherwise the idle auto-lock effect below would tear down and
+  // re-arm its timer on every keystroke.
   const lock = useCallback(() => {
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
       saveTimer.current = null;
-      if (doc) void persist(doc);
+      if (docRef.current) void persist(docRef.current);
     }
     passphraseRef.current = null;
     clearKeyCache();
     setDoc(null);
     setStatus(isProtected ? "locked" : "unlocked");
-  }, [doc, isProtected, persist]);
+  }, [isProtected, persist]);
 
   const protect = useCallback(
     async (passphrase: string) => {
