@@ -104,6 +104,15 @@ function ProtectionCard({
       <h2 style={{ fontSize: "1.05rem", fontWeight: 600, marginBottom: 8 }}>
         Encryption
       </h2>
+      {/* Same two words as the top-nav chip, on purpose — one vocabulary for
+          one piece of state, so the chip and this card can't read as two
+          different things. */}
+      <p style={{ fontSize: "0.85rem", marginBottom: 8 }}>
+        Status:{" "}
+        <strong style={{ color: isProtected ? "var(--accent)" : "var(--warn)" }}>
+          {isProtected ? "Protected" : "Not protected"}
+        </strong>
+      </p>
       <p className="muted" style={{ fontSize: "0.85rem", marginBottom: 16 }}>
         {isProtected ? (
           <>

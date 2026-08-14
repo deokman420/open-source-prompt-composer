@@ -773,8 +773,45 @@ section[id^="help-"] { scroll-margin-top: 72px; }
 }
 .vault-chip[data-state="unlocked"] { color: var(--accent); border-color: var(--accent-soft); }
 .vault-chip[data-state="locked"]   { color: var(--warn);   border-color: rgba(245,158,11,0.3); }
+/* Unprotected is the one state the user may want to act on, so it reads as a
+   warning and is itself the button that opens the passphrase popover. */
+.vault-chip[data-state="open"]     { color: var(--warn);   border-color: rgba(245,158,11,0.3); }
 .vault-chip button {
   background: none; border: none; color: inherit; cursor: pointer;
   font: inherit; padding: 0; opacity: 0.7;
 }
 .vault-chip button:hover { opacity: 1; }
+.vault-chip-btn { cursor: pointer; }
+.vault-chip-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* Set-a-passphrase popover hanging off the chip. */
+.vault-chip-wrap { position: relative; display: inline-flex; }
+.vault-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 290px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+.vault-pop h3 { font-size: 0.9rem; font-weight: 600; margin: 0; }
+.vault-pop p { font-size: 0.75rem; margin: 0; line-height: 1.45; }
+.vault-pop .field-label { margin-top: 4px; }
+.vault-pop .btn { margin-top: 6px; width: 100%; }
+.vault-pop-show {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.75rem; margin-top: 2px;
+}
+.vault-pop .muted-strong { margin-top: 8px; font-size: 0.72rem; }
+
+@media (max-width: 520px) {
+  /* Keep the popover on screen when the chip sits near the right edge. */
+  .vault-pop { right: auto; left: 50%; transform: translateX(-50%); width: min(290px, 88vw); }
+}

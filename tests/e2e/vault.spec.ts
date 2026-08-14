@@ -380,4 +380,37 @@ test.describe("vault", () => {
     expect(rec?.protected, "the old encrypted vault survived the erase").toBe(false);
     expect(rec?.envelope).toBeUndefined();
   });
+
+  /**
+   * The nav chip names the state in the terms a user cares about, and the
+   * unprotected state is actionable in place — a passphrase set from the chip
+   * must produce the same envelope as the Settings card, not a lesser one.
+   */
+  test("the nav chip names the state and can protect the vault in place", async ({
+    page,
+  }) => {
+    const chip = page.locator(".vault-chip");
+    await expect(chip).toHaveText("Not protected");
+
+    await chip.click();
+    await page.locator("#chip-pass").fill(PASSPHRASE);
+    await page.locator("#chip-confirm").fill(PASSPHRASE);
+    await page.getByRole("button", { name: "Protect vault" }).click();
+
+    await expect(chip).toHaveText(/Protected/);
+    await expect(page.locator(".vault-pop")).toHaveCount(0);
+
+    await page.waitForTimeout(1_000);
+    const rec = await readRecord(page);
+    expect(rec?.protected).toBe(true);
+    expect(rec?.doc).toBeUndefined();
+    expect(rec?.envelope?.alg).toBe("AES-GCM-256");
+
+    // And it really is the session passphrase: lock, then reopen with it.
+    await page.locator(".vault-chip button").click();
+    await expect(page.getByRole("heading", { name: "Unlock your vault" })).toBeVisible();
+    await page.locator("#passphrase").fill(PASSPHRASE);
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  });
 });

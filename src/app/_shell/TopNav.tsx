@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useVault } from "@/lib/vault/store";
+import VaultChip from "./VaultChip";
 
 /** Every surface in the app, in nav order. */
 export const NAV_LINKS = [
@@ -54,49 +54,5 @@ export default function TopNav() {
         </div>
       </div>
     </nav>
-  );
-}
-
-/**
- * Lock state at a glance, plus the one-click Lock action.
- *
- * Renders a placeholder (not null) before hydration so the nav doesn't change
- * height when the vault store resolves — see the .topnav-right note in
- * globals.css.
- */
-function VaultChip() {
-  const { status, isProtected, saving, lock } = useVault();
-
-  if (status === "loading") {
-    return (
-      <span className="vault-chip" data-state="loading">
-        …
-      </span>
-    );
-  }
-
-  if (!isProtected) {
-    return (
-      <span className="vault-chip" data-state="open" title="Stored on this device, unencrypted. Add a passphrase in Settings.">
-        local
-      </span>
-    );
-  }
-
-  if (status === "locked") {
-    return (
-      <span className="vault-chip" data-state="locked">
-        locked
-      </span>
-    );
-  }
-
-  return (
-    <span className="vault-chip" data-state="unlocked">
-      {saving ? "saving…" : "unlocked"}
-      <button type="button" onClick={lock} title="Lock the vault">
-        lock
-      </button>
-    </span>
   );
 }
