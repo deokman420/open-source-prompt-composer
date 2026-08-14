@@ -45,6 +45,27 @@ export default function VaultGate() {
 
           {error && <div className="vault-error">{error}</div>}
 
+          {/* Hidden identity for password managers. This app has no accounts,
+              but a password form without a username field is unfileable — the
+              manager either refuses to save or attaches the entry to nothing.
+              autoComplete="username" + a constant value gives it a stable handle. */}
+          <input
+            type="text"
+            name="username"
+            value="prompt-composer-vault"
+            autoComplete="username"
+            readOnly
+            aria-hidden="true"
+            tabIndex={-1}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+
           <div className="field">
             <label htmlFor="passphrase">Passphrase</label>
             <input

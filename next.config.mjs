@@ -71,6 +71,16 @@ const nextConfig = {
         source: "/:path*",
         headers: [
           { key: "Content-Security-Policy", value: csp },
+          // Two years, subdomains included. Safe here because the app is
+          // HTTPS-only in every deployment; local dev is exempt below.
+          ...(isDev
+            ? []
+            : [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=63072000; includeSubDomains; preload",
+                },
+              ]),
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },

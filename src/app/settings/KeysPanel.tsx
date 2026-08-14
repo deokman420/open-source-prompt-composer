@@ -129,7 +129,33 @@ function KeyRow({
       </div>
 
       {editing && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <form
+          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          {/* API keys are secrets but not account credentials; the hidden
+              identity keeps browsers from warning about an orphaned password
+              field. autoComplete="off" below still tells managers not to store
+              the key itself. */}
+          <input
+            type="text"
+            name="username"
+            value={`prompt-composer-${provider}`}
+            autoComplete="username"
+            readOnly
+            aria-hidden="true"
+            tabIndex={-1}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
           <input
             className="input"
             style={{ flex: 1, minWidth: 240 }}
@@ -150,15 +176,10 @@ function KeyRow({
           >
             {show ? "Hide" : "Show"}
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={save}
-            disabled={!value.trim()}
-          >
+          <button type="submit" className="btn btn-primary" disabled={!value.trim()}>
             Save
           </button>
-        </div>
+        </form>
       )}
     </div>
   );

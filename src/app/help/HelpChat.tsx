@@ -229,7 +229,7 @@ export default function HelpChat() {
           <strong>No {PROVIDER_LABELS[provider]} key on file.</strong>
           <span>
             AI Help uses your own API key.{" "}
-            <Link href="/account/keys" style={{ textDecoration: "underline" }}>Add a {provider} key &rarr;</Link>
+            <Link href="/settings" style={{ textDecoration: "underline" }}>Add a {provider} key &rarr;</Link>
           </span>
         </div>
       )}

@@ -81,7 +81,9 @@ test.describe("vault", () => {
     const rec = await readRecord(page);
     expect(rec?.protected).toBe(true);
     expect(rec?.envelope?.alg).toBe("AES-GCM-256");
-    expect(rec?.envelope?.kdf).toBe("PBKDF2-SHA256-210000");
+    // Must meet the OWASP floor; see scripts/test-vault-crypto.mts for the
+    // legacy-envelope compatibility that lets older vaults still open.
+    expect(rec?.envelope?.kdf).toBe("PBKDF2-SHA256-600000");
     expect(rec?.doc).toBeUndefined();
     expect(JSON.stringify(rec)).not.toContain(FAKE_KEY);
   });

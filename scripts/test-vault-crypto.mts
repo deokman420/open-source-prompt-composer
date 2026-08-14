@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import {
   encryptJson,
   decryptJson,
+  deriveAesKey,
   encryptForExport,
   verifyPassphrase,
   clearKeyCache,
@@ -44,6 +45,53 @@ test("envelope declares the algorithm and KDF it actually used", async () => {
   assert.equal(env.kdf, ENVELOPE_KDF);
   assert.equal(ENVELOPE_KDF, `PBKDF2-SHA256-${PBKDF2_ITERATIONS}`);
   assert.ok(isEnvelope(env));
+});
+
+test("meets the OWASP work-factor floor for PBKDF2-SHA256", () => {
+  assert.ok(
+    PBKDF2_ITERATIONS >= 600_000,
+    `work factor ${PBKDF2_ITERATIONS} is below the 600k floor`
+  );
+});
+
+test("a legacy 210k envelope still opens, and re-seals at the current factor", async () => {
+  // Raising the work factor must never orphan an existing vault. Build an
+  // envelope the old way (210k), then prove the current code reads it.
+  clearKeyCache();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const legacyKey = await deriveAesKey(PASS, salt, 210_000);
+  const ct = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    legacyKey,
+    new TextEncoder().encode(JSON.stringify(SECRET))
+  );
+  const b64 = (b: Uint8Array) => Buffer.from(b).toString("base64");
+  const legacy = {
+    alg: ENVELOPE_ALG,
+    kdf: "PBKDF2-SHA256-210000",
+    salt: b64(salt),
+    iv: b64(iv),
+    ct: b64(new Uint8Array(ct)),
+  } as const;
+
+  assert.ok(isEnvelope(legacy), "legacy envelope rejected — would orphan vaults");
+  clearKeyCache();
+  assert.deepEqual(await decryptJson(legacy, PASS), SECRET);
+
+  // Re-saving upgrades it to the current work factor.
+  const resealed = await encryptJson(SECRET, PASS);
+  assert.equal(resealed.kdf, ENVELOPE_KDF);
+  clearKeyCache();
+  assert.deepEqual(await decryptJson(resealed, PASS), SECRET);
+});
+
+test("an unsupported work factor is refused", async () => {
+  clearKeyCache();
+  const env = await encryptJson(SECRET, PASS);
+  assert.equal(isEnvelope({ ...env, kdf: "PBKDF2-SHA256-1000" }), false);
+  assert.equal(isEnvelope({ ...env, kdf: "PBKDF2-SHA256-abc" }), false);
+  assert.equal(isEnvelope({ ...env, kdf: "scrypt-16384" }), false);
 });
 
 test("the ciphertext does not contain the plaintext", async () => {

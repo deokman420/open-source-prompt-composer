@@ -6,32 +6,49 @@
  *   - The passphrase is NEVER persisted. Not to storage, not to a cookie, not
  *     to the server. It exists in a module-local variable for the life of the
  *     tab and is dropped on lock().
- *   - The derived key is cached in memory keyed by (passphrase, salt) so we
- *     don't re-run 210k PBKDF2 rounds on every keystroke-triggered autosave.
+ *   - The derived key is cached in memory keyed by (passphrase, salt, work
+ *     factor) so we don't re-run 600k PBKDF2 rounds on every keystroke-triggered
+ *     autosave.
  *   - AES-GCM's auth tag doubles as the passphrase check. A wrong passphrase
  *     fails decryption; there is no separate verifier blob to leak from.
  *
- * The envelope is versioned by its `alg`/`kdf` strings. Anything that doesn't
- * match exactly is rejected rather than best-effort parsed — a malformed or
- * downgraded envelope should surface as an error, not as silently weaker
- * crypto.
+ * The envelope is versioned by its `alg`/`kdf` strings. `alg` must match exactly;
+ * `kdf` must name a work factor we still support (see SUPPORTED_ITERATIONS).
+ * Anything else is rejected rather than best-effort parsed — a malformed or
+ * downgraded envelope should surface as an error, not as silently weaker crypto.
  */
 
-// OWASP's floor for PBKDF2-SHA256 as of 2023 is 600k; 210k is the figure the
-// cbapp envelope shipped with and the two must agree for imported backups to
-// open. Raising it is a breaking envelope change — bump ENVELOPE_KDF too and
-// write a migration that re-wraps on next unlock.
-export const PBKDF2_ITERATIONS = 210_000;
+// OWASP's floor for PBKDF2-SHA256 is 600k. The envelope originally shipped at
+// 210k (inherited from cbapp.html); new envelopes use the higher figure.
+export const PBKDF2_ITERATIONS = 600_000;
+
+// Iteration counts we will still OPEN. Raising the work factor must never
+// orphan an existing vault: the count is read from the envelope itself, so an
+// old one decrypts at its own setting and is silently re-wrapped at the current
+// setting on the next save (encryptJson always writes PBKDF2_ITERATIONS).
+// Removing an entry from this list makes those vaults permanently unreadable.
+const LEGACY_ITERATIONS = [210_000];
+const SUPPORTED_ITERATIONS = new Set([PBKDF2_ITERATIONS, ...LEGACY_ITERATIONS]);
 
 export const ENVELOPE_ALG = "AES-GCM-256";
 export const ENVELOPE_KDF = `PBKDF2-SHA256-${PBKDF2_ITERATIONS}`;
+
+/** Pull the work factor out of an envelope's kdf string, or null if unusable. */
+function iterationsFromKdf(kdf: unknown): number | null {
+  if (typeof kdf !== "string") return null;
+  const m = /^PBKDF2-SHA256-(\d+)$/.exec(kdf);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return SUPPORTED_ITERATIONS.has(n) ? n : null;
+}
 
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 
 export type Envelope = {
   alg: typeof ENVELOPE_ALG;
-  kdf: typeof ENVELOPE_KDF;
+  /** `PBKDF2-SHA256-<iterations>` — the count this envelope was sealed with. */
+  kdf: string;
   salt: string; // base64
   iv: string; // base64
   ct: string; // base64
@@ -66,11 +83,13 @@ function fromBase64(b64: string): Uint8Array {
 // in IndexedDB survives and the user re-enters the passphrase.
 let cachedPassphrase: string | null = null;
 let cachedSaltB64: string | null = null;
+let cachedIterations: number | null = null;
 let cachedKey: CryptoKey | null = null;
 
 export async function deriveAesKey(
   passphrase: string,
-  salt: Uint8Array
+  salt: Uint8Array,
+  iterations: number = PBKDF2_ITERATIONS
 ): Promise<CryptoKey> {
   const material = await crypto.subtle.importKey(
     "raw",
@@ -83,7 +102,7 @@ export async function deriveAesKey(
     {
       name: "PBKDF2",
       salt: salt as unknown as BufferSource,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: "SHA-256",
     },
     material,
@@ -95,16 +114,26 @@ export async function deriveAesKey(
 
 /**
  * Derive-or-reuse. Autosave calls this on every write; without the memo each
- * save would cost 210k PBKDF2 rounds (~100-300ms) on the UI thread.
+ * save would cost 600k PBKDF2 rounds (roughly half a second) on the UI thread.
  */
-async function ensureKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+async function ensureKey(
+  passphrase: string,
+  salt: Uint8Array,
+  iterations: number = PBKDF2_ITERATIONS
+): Promise<CryptoKey> {
   const saltB64 = toBase64(salt);
-  if (cachedKey && cachedPassphrase === passphrase && cachedSaltB64 === saltB64) {
+  if (
+    cachedKey &&
+    cachedPassphrase === passphrase &&
+    cachedSaltB64 === saltB64 &&
+    cachedIterations === iterations
+  ) {
     return cachedKey;
   }
-  const key = await deriveAesKey(passphrase, salt);
+  const key = await deriveAesKey(passphrase, salt, iterations);
   cachedPassphrase = passphrase;
   cachedSaltB64 = saltB64;
+  cachedIterations = iterations;
   cachedKey = key;
   return key;
 }
@@ -113,6 +142,7 @@ async function ensureKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
 export function clearKeyCache(): void {
   cachedPassphrase = null;
   cachedSaltB64 = null;
+  cachedIterations = null;
   cachedKey = null;
 }
 
@@ -125,7 +155,9 @@ export function isEnvelope(value: unknown): value is Envelope {
   const o = value as Record<string, unknown>;
   return (
     o.alg === ENVELOPE_ALG &&
-    o.kdf === ENVELOPE_KDF &&
+    // Any work factor we still support, not just the current one — otherwise
+    // raising it would lock users out of their own vaults.
+    iterationsFromKdf(o.kdf) !== null &&
     typeof o.salt === "string" &&
     typeof o.iv === "string" &&
     typeof o.ct === "string"
@@ -141,6 +173,8 @@ export async function encryptJson(
   passphrase: string,
   reuseSalt?: string
 ): Promise<Envelope> {
+  // Always seals at PBKDF2_ITERATIONS, so a vault opened from a legacy envelope
+  // is transparently upgraded the first time it is saved.
   const salt =
     reuseSalt && cachedPassphrase === passphrase
       ? fromBase64(reuseSalt)
@@ -212,7 +246,8 @@ export async function decryptJson<T = unknown>(
   }
   const salt = fromBase64(envelope.salt);
   const iv = fromBase64(envelope.iv);
-  const key = await ensureKey(passphrase, salt);
+  // Derive at the count this envelope was SEALED with, not the current default.
+  const key = await ensureKey(passphrase, salt, iterationsFromKdf(envelope.kdf) ?? PBKDF2_ITERATIONS);
 
   let plainBuf: ArrayBuffer;
   try {
@@ -242,7 +277,11 @@ export async function verifyPassphrase(
 ): Promise<boolean> {
   if (!isEnvelope(envelope)) return false;
   try {
-    const key = await deriveAesKey(passphrase, fromBase64(envelope.salt));
+    const key = await deriveAesKey(
+      passphrase,
+      fromBase64(envelope.salt),
+      iterationsFromKdf(envelope.kdf) ?? PBKDF2_ITERATIONS
+    );
     await crypto.subtle.decrypt(
       { name: "AES-GCM", iv: fromBase64(envelope.iv) as unknown as BufferSource },
       key,

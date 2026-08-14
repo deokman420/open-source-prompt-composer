@@ -127,7 +127,32 @@ function ProtectionCard({
       )}
       {err && <p className="vault-error">{err}</p>}
 
-      <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+      {/* A real <form> so browsers stop warning about orphaned password
+          fields and password managers can offer to save the passphrase.
+          onSubmit drives the same path as the button. */}
+      <form
+        style={{ display: "grid", gap: 10, maxWidth: 420 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void apply();
+        }}
+      >
+        <input
+          type="text"
+          name="username"
+          value="prompt-composer-vault"
+          autoComplete="username"
+          readOnly
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+        />
         <div>
           <label className="field-label" htmlFor="new-pass">
             {isProtected ? "New passphrase" : "Passphrase"}
@@ -173,11 +198,11 @@ function ProtectionCard({
         </label>
 
         <div>
-          <button type="button" className="btn btn-primary" onClick={apply} disabled={!canSubmit}>
+          <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
             {isProtected ? "Change passphrase" : "Encrypt vault"}
           </button>
         </div>
-      </div>
+      </form>
 
       <p className="muted-strong" style={{ fontSize: "0.78rem", marginTop: 16 }}>
         There is no recovery. Nothing about your passphrase leaves this device, so
@@ -202,7 +227,13 @@ function ProtectionCard({
             finds an unlocked tab could strip encryption and read your keys
             without ever knowing it.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <form
+            style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void remove();
+            }}
+          >
             <input
               id="remove-pass"
               className="input"
@@ -222,7 +253,7 @@ function ProtectionCard({
             >
               {removing ? "Checking…" : "Remove encryption"}
             </button>
-          </div>
+          </form>
         </div>
       )}
     </section>
@@ -331,7 +362,29 @@ function BackupCard({
             the vault. This can differ from your vault passphrase; it is used
             only for this file and never becomes your session key.
           </p>
-          <div style={{ display: "grid", gap: 8 }}>
+          <form
+            style={{ display: "grid", gap: 8 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void doExport();
+            }}
+          >
+            <input
+              type="text"
+              name="username"
+              value="prompt-composer-backup"
+              autoComplete="username"
+              readOnly
+              aria-hidden="true"
+              tabIndex={-1}
+              style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            />
             <input
               id="export-pass"
               className="input"
@@ -361,22 +414,38 @@ function BackupCard({
                 Passphrases don&rsquo;t match.
               </span>
             )}
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={doExport}
-            disabled={!canExport}
-            style={{ marginTop: 10 }}
-          >
-            Download encrypted backup
-          </button>
+            <button
+              type="submit"
+              className="btn btn-secondary"
+              disabled={!canExport}
+              style={{ marginTop: 2, justifySelf: "start" }}
+            >
+              Download encrypted backup
+            </button>
+          </form>
         </div>
 
         <div>
           <label className="field-label" htmlFor="import-pass">
             Restore from a backup
           </label>
+          <form onSubmit={(e) => e.preventDefault()} style={{ display: "grid", gap: 8 }}>
+          <input
+            type="text"
+            name="username"
+            value="prompt-composer-backup"
+            autoComplete="username"
+            readOnly
+            aria-hidden="true"
+            tabIndex={-1}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
           <input
             id="import-pass"
             className="input"
@@ -397,6 +466,7 @@ function BackupCard({
               if (file) void doImport(file);
             }}
           />
+          </form>
         </div>
       </div>
     </section>
