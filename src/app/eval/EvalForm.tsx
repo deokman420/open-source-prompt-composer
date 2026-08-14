@@ -23,6 +23,7 @@ import { EVAL_SYSTEM_TOKENS_EST } from "@/lib/eval/modes";
 import { runEval, EvalNoKeyError } from "@/lib/eval/run";
 import { ModelError } from "@/lib/client/model";
 import { useKeys, useDrafts, usePreferences } from "@/lib/vault/hooks";
+import { takeHandoff } from "@/lib/handoff";
 
 type Mode = "spellcheck" | "optimize" | "codecheck" | "structure";
 
@@ -61,19 +62,12 @@ export default function EvalForm() {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // A prompt sent over from /compose arrives in sessionStorage rather than the
-  // URL — prompts routinely exceed what a query string can carry, and putting
-  // one there would also leak it into history and any referrer.
+  // A prompt sent over from another tool arrives in memory, not the URL and
+  // not sessionStorage: prompts exceed what a query string carries, and
+  // sessionStorage would put user content on disk outside the vault.
   useEffect(() => {
-    try {
-      const handoff = sessionStorage.getItem("pc.eval.prompt");
-      if (handoff) {
-        setPromptText(handoff);
-        sessionStorage.removeItem("pc.eval.prompt");
-      }
-    } catch {
-      /* storage blocked — nothing to hand off */
-    }
+    const handoff = takeHandoff("eval-prefill");
+    if (handoff) setPromptText(handoff);
   }, []);
 
   // Keep the picker on a provider the user actually has a key for.

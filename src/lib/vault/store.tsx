@@ -41,6 +41,7 @@ import {
   type Envelope,
 } from "./crypto";
 import { emptyVault, migrate, SCHEMA_VERSION, type VaultDoc } from "./schema";
+import { installScratchBridge, purgeLegacyPlaintext } from "./scratch";
 
 const RECORD_KEY = "doc";
 const SAVE_DEBOUNCE_MS = 400;
@@ -119,6 +120,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Before anything else: remove plaintext left by earlier builds (and by the
+    // composer bundle running without a host). Stopping new writes isn't enough
+    // — the old copies are the exposure.
+    purgeLegacyPlaintext();
     (async () => {
       try {
         const record = await idbGet<StoredRecord>(RECORD_KEY);
@@ -416,6 +421,35 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     setStatus("empty");
   }, []);
+
+  /* ---------------------------------------------------------------- *
+   * Scratch bridge
+   * ---------------------------------------------------------------- */
+
+  /**
+   * Expose featureState to the module-level persist()/restore() helpers in the
+   * feature editors, so their working drafts land in the encrypted vault
+   * instead of localStorage. Reads come off the ref so the bridge doesn't need
+   * reinstalling on every edit; writes go through update() and inherit its
+   * debounce.
+   */
+  useEffect(() => {
+    installScratchBridge({
+      get: (key) => docRef.current?.featureState?.[key],
+      set: (key, value) =>
+        update((d) => ({
+          ...d,
+          featureState: { ...d.featureState, [key]: value },
+        })),
+      remove: (key) =>
+        update((d) => {
+          const next = { ...d.featureState };
+          delete next[key];
+          return { ...d, featureState: next };
+        }),
+    });
+    return () => installScratchBridge(null);
+  }, [update]);
 
   /* ---------------------------------------------------------------- *
    * Idle auto-lock

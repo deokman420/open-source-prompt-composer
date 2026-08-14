@@ -23,6 +23,21 @@
 // from a static file server with no React host).
 const PC_STORE = (typeof window !== "undefined" && window.__pcStore) || localStorage;
 
+// Cross-page handoff ("Send to Evaluator"). In-memory only — the React app
+// reads the same Map via src/lib/handoff.ts. Deliberately NOT sessionStorage:
+// that writes the prompt to disk outside the encrypted vault.
+function pcHandoffSet(key, value) {
+  if (typeof window === "undefined") return;
+  if (!window.__pcHandoff) window.__pcHandoff = new Map();
+  window.__pcHandoff.set(key, value);
+}
+function pcHandoffTake(key) {
+  if (typeof window === "undefined" || !window.__pcHandoff) return null;
+  const v = window.__pcHandoff.get(key) ?? null;
+  window.__pcHandoff.delete(key);
+  return v;
+}
+
 const CONFIG = {
   draftsKey: "context.composer.drafts.v1",
   currentKey: "context.composer.current.v1",
@@ -1462,13 +1477,13 @@ el.copyTxt.addEventListener("click", () => {
 // ---------- send to evaluator ----------
 // Hands the composed prompt to the Pro AI Eval page. Always sends the prompt
 // markdown (renderMarkdown) — never the code-export wrapper — since Eval scores
-// a prompt, not code. The prompt is stashed in sessionStorage (handles long
+// a prompt, not code. The prompt is stashed in the in-memory handoff map (handles long
 // prompts; cleared after EvalForm reads it) and we navigate to /eval.
 el.sendEval && el.sendEval.addEventListener("click", () => {
   const state = readForm();
   if (!hasAnyContent(state)) return; // nothing composed yet — no-op
   const prompt = renderMarkdown(state);
-  try { sessionStorage.setItem("pc:eval-prefill", prompt); } catch {}
+  pcHandoffSet("eval-prefill", prompt);
   window.location.assign("/eval");
 });
 
@@ -1828,9 +1843,9 @@ function loadFromHash() {
 // to /compose (same pattern as the eval prefill). Consume it once on load.
 function loadFromPrefill() {
   let raw = null;
-  try { raw = sessionStorage.getItem("pc:compose-prefill"); } catch { return false; }
+  raw = pcHandoffTake("compose-prefill");
   if (!raw) return false;
-  try { sessionStorage.removeItem("pc:compose-prefill"); } catch {}
+
   let state;
   try { state = JSON.parse(raw); } catch { return false; }
   if (!state || typeof state !== "object") return false;

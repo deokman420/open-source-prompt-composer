@@ -6,24 +6,22 @@ import Drafts from "./Drafts";
 import { hasAnyContent, initialState, toolReducer } from "./state";
 import { TOOL_TEMPLATES } from "@/lib/tools/templates";
 import type { ToolDef, ToolState } from "@/lib/tools/types";
+import { scratchGet, scratchSet } from "@/lib/vault/scratch";
+import { takeHandoff } from "@/lib/handoff";
 
 const CURRENT_KEY = "context.composer.tool.current.v1";
 
 function persist(s: ToolState) {
-  try {
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(s));
-  } catch {
-    /* quota / private mode */
-  }
+  // Into the encrypted vault, not localStorage — a plaintext mirror of the
+  // same prompts would make vault encryption decorative.
+  scratchSet(CURRENT_KEY, s);
 }
 
 function restore(): ToolState | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
-    if (!s || !s.tool || !Array.isArray(s.tool.params)) return null;
-    return s as ToolState;
+    const s = scratchGet<unknown>(CURRENT_KEY) as { tool?: { params?: unknown } } | null;
+    if (!s?.tool || !Array.isArray(s.tool.params)) return null;
+    return s as unknown as ToolState;
   } catch {
     return null;
   }
@@ -33,18 +31,8 @@ function restore(): ToolState | null {
 // Consume it once and validate shape; takes precedence over the local restore.
 function readPrefill(): ToolDef | null {
   if (typeof window === "undefined") return null;
-  let raw: string | null = null;
-  try {
-    raw = sessionStorage.getItem("pc:tool-prefill");
-  } catch {
-    return null;
-  }
+  const raw = takeHandoff("tool-prefill");
   if (!raw) return null;
-  try {
-    sessionStorage.removeItem("pc:tool-prefill");
-  } catch {
-    /* ignore */
-  }
   try {
     const def = JSON.parse(raw);
     if (!def || !Array.isArray(def.params)) return null;

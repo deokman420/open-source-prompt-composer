@@ -10,23 +10,22 @@ import {
 import { LOOP_TEMPLATES } from "@/lib/loops/templates";
 import { LOOP_CATEGORIES, emptyLoopState } from "@/lib/loops/types";
 import type { LoopMode, LoopState } from "@/lib/loops/types";
+import { scratchGet, scratchSet } from "@/lib/vault/scratch";
+import { takeHandoff } from "@/lib/handoff";
 
 const CURRENT_KEY = "context.composer.loop.current.v1";
 
 function persist(s: LoopState) {
-  try {
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(s));
-  } catch {
-    /* quota / private mode */
-  }
+  // Into the encrypted vault, not localStorage — a plaintext mirror of the
+  // same prompts would make vault encryption decorative.
+  scratchSet(CURRENT_KEY, s);
 }
 function restore(): LoopState | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = scratchGet<unknown>(CURRENT_KEY) as Record<string, unknown> | null;
+    if (!s) return null;
     if (!s || typeof s.mode !== "string") return null;
-    return s as LoopState;
+    return s as unknown as LoopState;
   } catch {
     return null;
   }
@@ -37,22 +36,12 @@ function restore(): LoopState | null {
 // local working copy. Mirrors ToolsClient.readPrefill.
 function readPrefill(): LoopState | null {
   if (typeof window === "undefined") return null;
-  let raw: string | null = null;
-  try {
-    raw = sessionStorage.getItem("pc:loop-prefill");
-  } catch {
-    return null;
-  }
+  const raw = takeHandoff("loop-prefill");
   if (!raw) return null;
-  try {
-    sessionStorage.removeItem("pc:loop-prefill");
-  } catch {
-    /* ignore */
-  }
   try {
     const s = JSON.parse(raw);
     if (!s || typeof s.mode !== "string") return null;
-    return s as LoopState;
+    return s as unknown as LoopState;
   } catch {
     return null;
   }

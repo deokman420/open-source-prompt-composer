@@ -4,6 +4,7 @@ import { renderBundleMd, renderBundleXml } from "@/lib/orchestra/bundle";
 import { computeHealth, estimateTokens } from "@/lib/orchestra/health";
 import { ORCH_TARGETS, MODELS, findModel, renderCode, anyAgentHasModel } from "@/lib/orchestra/exporters";
 import type { OrchState, ProviderId } from "@/lib/orchestra/types";
+import { setHandoff } from "@/lib/handoff";
 
 type TargetKey = keyof typeof ORCH_TARGETS;
 
@@ -60,7 +61,7 @@ export default function LivePreview({ state }: { state: OrchState }) {
   // "Send to Evaluator"). sessionStorage is read + cleared by EvalForm on mount.
   function sendToEval() {
     try {
-      sessionStorage.setItem("pc:eval-prefill", renderBundleMd(state));
+      setHandoff("eval-prefill", renderBundleMd(state));
     } catch {
       /* sessionStorage unavailable — ignore */
     }

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { toToolJsonString } from "@/lib/tools/serialize";
 import { validateToolDef } from "@/lib/tools/validate";
 import type { ToolDef } from "@/lib/tools/types";
+import { setHandoff } from "@/lib/handoff";
 
 export default function ToolPreview({ tool }: { tool: ToolDef }) {
   const [copied, setCopied] = useState(false);
@@ -27,7 +28,7 @@ export default function ToolPreview({ tool }: { tool: ToolDef }) {
   // Evaluator"). EvalForm reads + clears "pc:eval-prefill" on mount.
   function sendToEval() {
     try {
-      sessionStorage.setItem("pc:eval-prefill", json);
+      setHandoff("eval-prefill", json);
     } catch {
       /* sessionStorage unavailable — ignore */
     }

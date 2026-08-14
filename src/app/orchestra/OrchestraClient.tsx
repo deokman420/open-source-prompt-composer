@@ -10,24 +10,23 @@ import { hasAnyContent, initialState, orchReducer } from "./state";
 import { ORCH_PATTERNS } from "@/lib/orchestra/patterns";
 import { encodeState, decodeState } from "@/lib/orchestra/share";
 import type { OrchState, PatternId } from "@/lib/orchestra/types";
+import { scratchGet, scratchSet } from "@/lib/vault/scratch";
+import { takeHandoff } from "@/lib/handoff";
 
 const CURRENT_KEY = "context.composer.orch.current.v1";
 
 function persist(s: OrchState) {
-  try {
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(s));
-  } catch {
-    /* quota / private mode */
-  }
+  // Into the encrypted vault, not localStorage — a plaintext mirror of the
+  // same prompts would make vault encryption decorative.
+  scratchSet(CURRENT_KEY, s);
 }
 
 function restore(): OrchState | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = scratchGet<unknown>(CURRENT_KEY) as Record<string, unknown> | null;
+    if (!s) return null;
     if (!s || !s.pattern || !Array.isArray(s.agents)) return null;
-    return s as OrchState;
+    return s as unknown as OrchState;
   } catch {
     return null;
   }
@@ -38,22 +37,12 @@ function restore(): OrchState | null {
 // local restore (mirrors the compose/tool/ctx editors).
 function readPrefill(): OrchState | null {
   if (typeof window === "undefined") return null;
-  let raw: string | null = null;
-  try {
-    raw = sessionStorage.getItem("pc:orch-prefill");
-  } catch {
-    return null;
-  }
+  const raw = takeHandoff("orch-prefill");
   if (!raw) return null;
-  try {
-    sessionStorage.removeItem("pc:orch-prefill");
-  } catch {
-    /* ignore */
-  }
   try {
     const s = JSON.parse(raw);
     if (!s || typeof s.pattern !== "string" || !Array.isArray(s.agents)) return null;
-    return s as OrchState;
+    return s as unknown as OrchState;
   } catch {
     return null;
   }

@@ -10,24 +10,23 @@ import Drafts from "./Drafts";
 import { ctxReducer, initialState, hasAnyContent } from "./state";
 import { encodeState, decodeState } from "@/lib/context-pipeline/share";
 import type { CtxState } from "@/lib/context-pipeline/types";
+import { scratchGet, scratchSet } from "@/lib/vault/scratch";
+import { takeHandoff } from "@/lib/handoff";
 
 const CURRENT_KEY = "context.composer.ctxpipe.current.v1";
 
 function persist(s: CtxState) {
-  try {
-    localStorage.setItem(CURRENT_KEY, JSON.stringify(s));
-  } catch {
-    /* quota / private mode */
-  }
+  // Into the encrypted vault, not localStorage — a plaintext mirror of the
+  // same prompts would make vault encryption decorative.
+  scratchSet(CURRENT_KEY, s);
 }
 
 function restore(): CtxState | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = scratchGet<unknown>(CURRENT_KEY) as Record<string, unknown> | null;
+    if (!s) return null;
     if (!s || typeof s.model !== "string" || !s.sources) return null;
-    return s as CtxState;
+    return s as unknown as CtxState;
   } catch {
     return null;
   }
@@ -37,22 +36,12 @@ function restore(): CtxState | null {
 // Consume it once and validate shape; takes precedence over the local restore.
 function readPrefill(): CtxState | null {
   if (typeof window === "undefined") return null;
-  let raw: string | null = null;
-  try {
-    raw = sessionStorage.getItem("pc:ctx-prefill");
-  } catch {
-    return null;
-  }
+  const raw = takeHandoff("ctx-prefill");
   if (!raw) return null;
-  try {
-    sessionStorage.removeItem("pc:ctx-prefill");
-  } catch {
-    /* ignore */
-  }
   try {
     const s = JSON.parse(raw);
     if (!s || typeof s.model !== "string" || !s.sources) return null;
-    return s as CtxState;
+    return s as unknown as CtxState;
   } catch {
     return null;
   }

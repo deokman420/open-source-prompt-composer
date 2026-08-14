@@ -202,6 +202,92 @@ test.describe("vault", () => {
     expect(contents, "API key written into the backup in cleartext").not.toContain(FAKE_KEY);
   });
 
+  /**
+   * Regression: the feature editors used to autosave their working state to
+   * localStorage, and AI Help kept its transcript in sessionStorage. Both
+   * ignored the vault entirely, so with encryption on you could still read
+   * every prompt out of devtools in the clear. This walks the tools, types
+   * identifiable content into each, and asserts none of it lands anywhere
+   * outside the encrypted record.
+   */
+  test("no user content is written outside the encrypted vault", async ({ page }) => {
+    await encryptVault(page);
+    await page.waitForTimeout(1_000);
+
+    const CANARY = "CANARY-SECRET-PROMPT-TEXT";
+
+    // In-app navigation only: page.goto() is a hard load, which drops the
+    // in-memory passphrase and locks the vault, leaving nothing to type into.
+    const go = async (label: string) => {
+      await page.getByRole("link", { name: label, exact: true }).first().click();
+      await page.waitForTimeout(400);
+    };
+
+    // Orchestra: type into the first agent slot.
+    await go("Orchestra");
+    const orchField = page.locator("textarea").first();
+    await orchField.fill(CANARY);
+    await page.waitForTimeout(900);
+
+    // Tool Builder: name the tool.
+    await go("Tools");
+    const toolField = page.locator('input[type="text"]').first();
+    await toolField.fill(CANARY);
+    await page.waitForTimeout(900);
+
+    // Loops: the recurring instruction.
+    await go("Loops");
+    const loopField = page.locator("textarea").first();
+    if (await loopField.count()) {
+      await loopField.fill(CANARY);
+      await page.waitForTimeout(900);
+    }
+
+    // Compose: the vanilla bundle, through PC_STORE.
+    await go("Compose");
+    await page.locator("#fieldRole").fill(CANARY);
+    await page.waitForTimeout(1_200);
+
+    const dump = await page.evaluate(() => {
+      const local: Record<string, string> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!;
+        local[k] = localStorage.getItem(k) ?? "";
+      }
+      const session: Record<string, string> = {};
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i)!;
+        session[k] = sessionStorage.getItem(k) ?? "";
+      }
+      return { local, session };
+    });
+
+    expect(
+      JSON.stringify(dump.local),
+      `user content found in localStorage: ${JSON.stringify(dump.local).slice(0, 400)}`
+    ).not.toContain(CANARY);
+    expect(
+      JSON.stringify(dump.session),
+      `user content found in sessionStorage: ${JSON.stringify(dump.session).slice(0, 400)}`
+    ).not.toContain(CANARY);
+
+    // And the vault record itself must still be an opaque envelope.
+    const rec = await readRecord(page);
+    expect(rec?.protected).toBe(true);
+    expect(JSON.stringify(rec)).not.toContain(CANARY);
+
+    // Guard against this test passing trivially: if the fields never actually
+    // persisted, "not in localStorage" would be true for the boring reason.
+    // Navigating away and back must restore the text — proving it really was
+    // written, and written into the vault.
+    await go("Orchestra");
+    await expect(page.locator("textarea").first()).toHaveValue(CANARY);
+    // Compose is covered by the localStorage sweep above: its bundle writes
+    // through PC_STORE, and a regression there would surface as the canary
+    // appearing in localStorage. Its cross-navigation re-seeding is separate,
+    // pre-existing behaviour and deliberately not asserted here.
+  });
+
   test("the footer carries a build stamp", async ({ page }) => {
     const version = page.locator(".footer-version");
     await expect(version).toBeVisible();

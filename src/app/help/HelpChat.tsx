@@ -5,6 +5,7 @@ import type { Provider } from "@/lib/providers/types";
 import { streamModel, ModelError } from "@/lib/client/model";
 import { buildSystemPrompt, HELP_MAX_TOKENS, HELP_SYSTEM_TOKENS_EST } from "@/lib/help/chat";
 import { useKeys, usePreferences } from "@/lib/vault/hooks";
+import { scratchGet, scratchSet, scratchRemove } from "@/lib/vault/scratch";
 import {
   PROVIDER_MODELS,
   DEFAULT_MODEL,
@@ -15,9 +16,11 @@ import {
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-// Per-tab persistence: sessionStorage survives in-app navigation and reloads but
-// is cleared when the tab closes — the lifetime we want for a help conversation.
-const SESSION_KEY = "pc:help-chat:v1";
+// The transcript is user content — questions about their own code, and model
+// answers quoting it back. It goes in the encrypted vault, not sessionStorage,
+// which would leave a plaintext copy on disk that outlives the conversation and
+// ignores the passphrase entirely.
+const SESSION_KEY = "help-chat";
 
 // Failures surface as a message plus an optional hint. There is no quota and
 // no entitlement to report — the user is billed by their own provider.
@@ -55,14 +58,13 @@ export default function HelpChat() {
     setModel(DEFAULT_MODEL[p]);
   }
 
-  // Restore the transcript (and the provider/model picker) once on mount. Quota
-  // is intentionally NOT restored — it comes from server props and stays
-  // authoritative.
+  // Restore the transcript (and the provider/model picker) once on mount.
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { messages?: unknown; provider?: unknown; model?: unknown };
+      const saved = scratchGet<{ messages?: unknown; provider?: unknown; model?: unknown }>(
+        SESSION_KEY
+      );
+      if (!saved) return;
       if (Array.isArray(saved.messages)) {
         const restored = (saved.messages as unknown[]).filter((m): m is ChatMessage => {
           const x = m as { role?: unknown; content?: unknown };
@@ -75,7 +77,7 @@ export default function HelpChat() {
         if (typeof saved.model === "string") setModel(saved.model);
       }
     } catch {
-      /* private mode / corrupt entry — start fresh */
+      /* corrupt entry — start fresh */
     }
   }, []);
 
@@ -83,11 +85,7 @@ export default function HelpChat() {
   // here (don't clobber a restore-in-progress on mount).
   useEffect(() => {
     if (messages.length === 0) return;
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ messages, provider, model }));
-    } catch {
-      /* quota / private mode — non-fatal */
-    }
+    scratchSet(SESSION_KEY, { messages, provider, model });
   }, [messages, provider, model]);
 
   function newConversation() {
@@ -98,11 +96,7 @@ export default function HelpChat() {
     setMessages([]);
     setInput("");
     setError(null);
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      /* ignore */
-    }
+    scratchRemove(SESSION_KEY);
   }
 
   async function send(text: string) {
