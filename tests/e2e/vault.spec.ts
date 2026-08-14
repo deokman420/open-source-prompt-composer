@@ -168,6 +168,49 @@ test.describe("vault", () => {
     expect(rec?.protected).toBe(false);
   });
 
+  /**
+   * Re-keying is as dangerous as stripping encryption, and worse in one way:
+   * a passphrase change made from an unattended unlocked tab is unrecoverable.
+   */
+  test("changing the passphrase requires the current one", async ({ page }) => {
+    await encryptVault(page);
+    await page.waitForTimeout(1_000);
+
+    const change = page.getByRole("button", { name: "Change passphrase" });
+
+    // New passphrase alone isn't enough — the button stays disabled.
+    await page.locator("#new-pass").fill("attacker-passphrase");
+    await page.locator("#confirm-pass").fill("attacker-passphrase");
+    await expect(change).toBeDisabled();
+
+    // A wrong current passphrase must not re-key the vault.
+    await page.locator("#current-pass").fill("not-the-passphrase");
+    await change.click();
+    await expect(
+      page.getByText("Wrong current passphrase — the passphrase was not changed.")
+    ).toBeVisible();
+    await page.waitForTimeout(1_000);
+
+    // The original passphrase must still open the vault.
+    await page.locator(".vault-chip button").click();
+    await page.locator("#passphrase").fill(PASSPHRASE);
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+    // With the current passphrase, the change goes through.
+    await page.locator("#current-pass").fill(PASSPHRASE);
+    await page.locator("#new-pass").fill("second-passphrase");
+    await page.locator("#confirm-pass").fill("second-passphrase");
+    await page.getByRole("button", { name: "Change passphrase" }).click();
+    await expect(page.getByText("Passphrase changed.")).toBeVisible();
+    await page.waitForTimeout(1_500);
+
+    await page.locator(".vault-chip button").click();
+    await page.locator("#passphrase").fill("second-passphrase");
+    await page.getByRole("button", { name: "Unlock" }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  });
+
   test("backups are always encrypted", async ({ page }) => {
     // Something identifiable must exist in the vault to look for in the file.
     await page.getByRole("button", { name: "Add key" }).first().click();

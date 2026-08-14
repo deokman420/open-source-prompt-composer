@@ -7,8 +7,8 @@ import { useVault, MIN_PASSPHRASE_LENGTH } from "@/lib/vault/store";
  * Encryption, backup, and erasure.
  *
  * Every control here can destroy or expose data that exists in exactly one
- * place, so each one is gated on something more than a single click:
- * removing encryption requires the current passphrase, exporting requires a
+ * place, so each one is gated on something more than a single click: changing
+ * or removing encryption requires the current passphrase, exporting requires a
  * passphrase to encrypt with, and erasing requires typing a confirmation word.
  */
 export default function VaultPanel() {
@@ -35,9 +35,11 @@ function ProtectionCard({
   onUnprotect,
 }: {
   isProtected: boolean;
-  onProtect: (p: string) => Promise<void>;
+  onProtect: (p: string, current?: string) => Promise<void>;
   onUnprotect: (p: string) => Promise<void>;
 }) {
+  // Only asked for when a passphrase already exists — see apply().
+  const [currentPass, setCurrentPass] = useState("");
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -52,20 +54,33 @@ function ProtectionCard({
   const mismatch = confirm.length > 0 && pass !== confirm;
   const tooShort = pass.length > 0 && pass.length < MIN_PASSPHRASE_LENGTH;
   const canSubmit =
-    pass.length >= MIN_PASSPHRASE_LENGTH && pass === confirm && !busy;
+    pass.length >= MIN_PASSPHRASE_LENGTH &&
+    pass === confirm &&
+    (!isProtected || currentPass.length > 0) &&
+    !busy;
 
   async function apply() {
     if (!canSubmit) return;
     setBusy(true);
     setErr(null);
     try {
-      await onProtect(pass);
+      // Re-keying is gated on the current passphrase: an unattended unlocked
+      // tab must not be enough to seal the vault under a passphrase the owner
+      // doesn't know, which is unrecoverable.
+      await onProtect(pass, isProtected ? currentPass : undefined);
       setNote(isProtected ? "Passphrase changed." : "Vault encrypted.");
+      setCurrentPass("");
       setPass("");
       setConfirm("");
       setShow(false);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to apply passphrase.");
+      setErr(
+        e instanceof Error && e.name === "WrongPassphraseError"
+          ? "Wrong current passphrase — the passphrase was not changed."
+          : e instanceof Error
+            ? e.message
+            : "Failed to apply passphrase."
+      );
     } finally {
       setBusy(false);
     }
@@ -162,6 +177,26 @@ function ProtectionCard({
               pointerEvents: "none",
             }}
         />
+        {isProtected && (
+          <div>
+            <label className="field-label" htmlFor="current-pass">
+              Current passphrase
+            </label>
+            <input
+              id="current-pass"
+              className="input"
+              type="password"
+              value={currentPass}
+              onChange={(e) => setCurrentPass(e.target.value)}
+              autoComplete="current-password"
+              spellCheck={false}
+            />
+            <span className="muted" style={{ fontSize: "0.75rem" }}>
+              Required — without it, anyone who finds an unlocked tab could
+              re-key the vault and lock you out for good.
+            </span>
+          </div>
+        )}
         <div>
           <label className="field-label" htmlFor="new-pass">
             {isProtected ? "New passphrase" : "Passphrase"}

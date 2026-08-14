@@ -72,8 +72,11 @@ export type VaultApi = {
   lock: () => void;
   /** Mutate the document. The updater must return a NEW object, not mutate. */
   update: (fn: (doc: VaultDoc) => VaultDoc) => void;
-  /** Add or change the at-rest passphrase. */
-  protect: (passphrase: string) => Promise<void>;
+  /**
+   * Add or change the at-rest passphrase. Changing an existing one requires
+   * the current passphrase.
+   */
+  protect: (passphrase: string, currentPassphrase?: string) => Promise<void>;
   /** Remove passphrase protection. Requires the current passphrase. */
   unprotect: (passphrase: string) => Promise<void>;
   /** Serialize to a downloadable backup. Always encrypted; passphrase required. */
@@ -295,9 +298,32 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setStatus(isProtected ? "locked" : "unlocked");
   }, [isProtected, persist]);
 
+  /**
+   * Set or change the at-rest passphrase.
+   *
+   * Changing an existing passphrase is re-keying, and re-keying an unlocked tab
+   * is exactly as dangerous as stripping encryption: whoever walks up to an
+   * unattended session could seal the vault under a passphrase only they know,
+   * locking the owner out permanently — there is no recovery path. So the same
+   * gate as unprotect() applies, verified against the stored envelope rather
+   * than the in-memory session value.
+   *
+   * Setting a passphrase for the first time has nothing to verify against, so
+   * `currentPassphrase` is only required when a protected record exists.
+   */
   const protect = useCallback(
-    async (passphrase: string) => {
+    async (passphrase: string, currentPassphrase?: string) => {
       if (!doc) throw new Error("Unlock the vault first.");
+
+      const record = await idbGet<StoredRecord>(RECORD_KEY);
+      if (record?.protected) {
+        if (!currentPassphrase) {
+          throw new Error("Enter your current passphrase to change it.");
+        }
+        const ok = await verifyPassphrase(record.envelope, currentPassphrase);
+        if (!ok) throw new WrongPassphraseError();
+      }
+
       passphraseRef.current = passphrase;
       // Force a fresh salt: re-keying must not reuse the previous envelope's.
       saltRef.current = undefined;
