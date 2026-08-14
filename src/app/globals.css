@@ -698,6 +698,8 @@ section[id^="help-"] { scroll-margin-top: 72px; }
    ------------------------------------------------------------------------ */
 .auth-shell {
   display: flex;
+  flex-direction: column;   /* card, then the locked-out escape hatch below it */
+  align-items: center;
   justify-content: center;
   padding: 40px 0;
 }
@@ -731,6 +733,30 @@ section[id^="help-"] { scroll-margin-top: 72px; }
   color: var(--bad);
   font-size: 0.85rem;
   margin-bottom: 12px;
+}
+/* Erase-and-start-over, under the unlock card. Outside the card and collapsed
+   by default: it is the last resort, not an alternative to remembering. */
+.vault-escape {
+  width: 100%;
+  max-width: 30rem;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.vault-escape > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  list-style: none;
+}
+.vault-escape > summary::-webkit-details-marker { display: none; }
+.vault-escape > summary::before { content: "▸ "; }
+.vault-escape[open] > summary::before { content: "▾ "; }
+.vault-escape > summary:hover { color: var(--text); }
+.vault-escape code {
+  font-family: var(--mono);
+  color: var(--text);
 }
 /* Lock state chip in the top nav. */
 .vault-chip {

@@ -48,6 +48,10 @@ There is **no passphrase recovery**. Nobody holds a copy — not this site, not
 anyone. A forgotten passphrase means the vault cannot be opened, by anyone,
 ever. That is the point, and it is also a real risk: export a backup.
 
+What the unlock screen does offer is a way out: "Forgotten your passphrase?"
+erases the vault and starts over, behind a typed confirmation. It has to live
+there rather than in Settings, because the gate covers Settings too.
+
 **Backups are always encrypted.** Export requires a passphrase; there is no
 plaintext option. A backup file is the one copy of this data that leaves the
 browser and lands somewhere durable — a Downloads folder, a synced directory, a

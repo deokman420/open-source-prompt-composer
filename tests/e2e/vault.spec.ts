@@ -346,4 +346,38 @@ test.describe("vault", () => {
     await page.getByRole("button", { name: "Unlock" }).click();
     await expect(page.locator("#composerForm")).toBeVisible();
   });
+
+  /**
+   * The gate covers every route, Settings included. Its copy used to send a
+   * locked-out user to Settings to erase — somewhere the gate itself made
+   * unreachable, leaving browser site-data preferences as the only way out.
+   */
+  test("a forgotten passphrase can be escaped from the gate itself", async ({
+    page,
+  }) => {
+    await encryptVault(page);
+    await page.waitForTimeout(1_500);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Unlock your vault" })).toBeVisible();
+
+    await page.getByText("Forgotten your passphrase?").click();
+    const erase = page.getByRole("button", { name: "Erase and start over" });
+
+    // Guarded: the confirmation word is required, and only that word.
+    await expect(erase).toBeDisabled();
+    await page.locator(".vault-escape input").fill("nope");
+    await expect(erase).toBeDisabled();
+
+    await page.locator(".vault-escape input").fill("erase");
+    await expect(erase).toBeEnabled();
+    await erase.click();
+
+    // The app is usable again, with no reload needed...
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    // ...and what is on disk is a fresh unprotected vault, not the old envelope.
+    await page.waitForTimeout(1_000);
+    const rec = await readRecord(page);
+    expect(rec?.protected, "the old encrypted vault survived the erase").toBe(false);
+    expect(rec?.envelope).toBeUndefined();
+  });
 });
