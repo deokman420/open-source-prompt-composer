@@ -1,12 +1,9 @@
 import Link from "next/link";
-
-const REPO = "https://github.com/deokman420/open-source-prompt-composer";
-
 // Inlined at build time by next.config.mjs. Identifies the deployed bundle,
 // which is what you actually need when someone reports a bug against "the site".
-const VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
-const SHA = process.env.NEXT_PUBLIC_BUILD_SHA ?? "dev";
-const BUILT = process.env.NEXT_PUBLIC_BUILD_DATE ?? "";
+import { APP_VERSION as VERSION, BUILD_SHA as SHA, BUILD_DATE as BUILT } from "@/lib/build";
+
+const REPO = "https://github.com/deokman420/open-source-prompt-composer";
 
 export default function Footer() {
   return (

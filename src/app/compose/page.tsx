@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ComposerHost from "./ComposerHost";
+import { versioned, COMPOSER_BUNDLE, COMPOSER_STYLES } from "@/lib/build";
 
 /**
  * Single-prompt R-G-C-B-T-S composer.
@@ -29,11 +30,13 @@ export default function ComposePage() {
           still owns .topnav / .page / .brand. `precedence` makes React 19 hoist
           it into <head> and hold paint until it loads; without it the sheet
           applies late and shifts the whole page. */}
-      <link rel="stylesheet" href="/composer/style.css" precedence="default" />
+      <link rel="stylesheet" href={versioned(COMPOSER_STYLES)} precedence="default" />
 
       {/* Preload the bundle so it is cache-hot by the time ComposerHost appends
-          the script element, instead of being discovered only after hydration. */}
-      <link rel="preload" href="/composer/app.js" as="script" />
+          the script element, instead of being discovered only after hydration.
+          Must be the exact URL ComposerHost requests, version stamp included,
+          or the preload is wasted and the file is fetched twice. */}
+      <link rel="preload" href={versioned(COMPOSER_BUNDLE)} as="script" />
 
       <section className="composer-host">
         <div className="band-label">01 · compose</div>

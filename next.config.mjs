@@ -64,6 +64,20 @@ const nextConfig = {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_BUILD_SHA: buildSha(),
     NEXT_PUBLIC_BUILD_DATE: new Date().toISOString().slice(0, 10),
+    // Cache buster for the hand-written assets under /public/composer.
+    //
+    // Everything Next emits lives at a content-hashed /_next/static URL, so it
+    // can never go stale. The composer bundle and its stylesheet do not: they
+    // sit at fixed paths, which means a deploy can leave a browser holding last
+    // version's app.js while running this version's HTML — and that HTML is the
+    // bundle's DOM contract, so the mismatch shows up as features quietly not
+    // binding. Stamping the build onto the URL makes each deploy a new resource.
+    //
+    // In dev the value changes per server start instead, so editing app.js and
+    // reloading is enough.
+    NEXT_PUBLIC_ASSET_VERSION: isDev
+      ? String(Date.now())
+      : `${pkg.version}-${buildSha()}`,
   },
   async headers() {
     return [
@@ -95,6 +109,16 @@ const nextConfig = {
         // layer should ever hold a proxy response containing model output.
         source: "/api/:path*",
         headers: [{ key: "Cache-Control", value: "no-store, max-age=0" }],
+      },
+      {
+        // Only the version-stamped request gets the immutable year. A bare
+        // /composer/app.js keeps the default revalidate-every-time policy, so a
+        // future caller that forgets `?v=` cannot pin itself to a stale copy.
+        source: "/composer/:path*",
+        has: [{ type: "query", key: "v" }],
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
       },
     ];
   },

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useVault } from "@/lib/vault/store";
+import { versioned, COMPOSER_BUNDLE } from "@/lib/build";
 
 /**
  * Bridges the vanilla composer bundle (/composer/app.js) to the encrypted vault.
@@ -138,7 +139,7 @@ export default function ComposerHost() {
     // recreated but a module would not re-run. The bundle's per-DOM guard makes
     // a redundant evaluation a no-op.
     const script = document.createElement("script");
-    script.src = "/composer/app.js";
+    script.src = versioned(COMPOSER_BUNDLE);
     script.async = false;
     document.body.appendChild(script);
 
