@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useVault } from "@/lib/vault/store";
 
 /**
@@ -53,6 +54,7 @@ declare global {
 
 export default function ComposerHost() {
   const { doc, update } = useVault();
+  const router = useRouter();
 
   // Live views of vault state and the update fn, so the mount effect never has
   // to re-run (re-running it would re-inject the bundle).
@@ -60,6 +62,20 @@ export default function ComposerHost() {
   docRef.current = doc;
   const updateRef = useRef(update);
   updateRef.current = update;
+
+  // The bundle asks the host to route ("Send to Evaluator") rather than doing a
+  // full page load, which would destroy the in-memory handoff carrying the
+  // prompt. Claiming the event with preventDefault() tells it we handled it.
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const href = (e as CustomEvent<{ href?: string }>).detail?.href;
+      if (!href) return;
+      e.preventDefault();
+      router.push(href);
+    };
+    window.addEventListener("pc:navigate", onNavigate);
+    return () => window.removeEventListener("pc:navigate", onNavigate);
+  }, [router]);
 
   useEffect(() => {
     // Writes the bundle has made that haven't been flushed to the vault yet.

@@ -289,6 +289,41 @@ test.describe("vault", () => {
     await expect(page.locator("#fieldRole")).toHaveValue(CANARY);
   });
 
+  /**
+   * Regression: handoffs between tools moved from sessionStorage to an
+   * in-memory map, to keep prompts off disk. The composer's "Send to Evaluator"
+   * used window.location.assign(), a full page load — which tears that map down
+   * and delivers an empty prompt. It now asks the host to route client-side.
+   */
+  test("send-to-evaluator carries the prompt without touching disk", async ({ page }) => {
+    // Eval only renders its form once a key exists.
+    await page.getByRole("button", { name: "Add key" }).first().click();
+    await page.locator('input[placeholder^="Paste your"]').first().fill(FAKE_KEY);
+    await page.getByRole("button", { name: "Save", exact: true }).first().click();
+    await page.waitForTimeout(800);
+
+    await page.getByRole("link", { name: "Compose", exact: true }).first().click();
+    await page.locator("#fieldRole").fill("SEND-CANARY-ROLE");
+    await page.waitForTimeout(700);
+    await page.locator("#sendToEvalBtn").click();
+
+    await expect(page).toHaveURL(/\/eval$/);
+    await expect(page.locator("#eval-prompt")).toHaveValue(/SEND-CANARY-ROLE/);
+
+    // The prompt must not have travelled via disk or the URL.
+    const leaked = await page.evaluate(() => {
+      const dump = (st: Storage) => {
+        let out = "";
+        for (let i = 0; i < st.length; i++) out += st.getItem(st.key(i)!) ?? "";
+        return out;
+      };
+      return { session: dump(sessionStorage), local: dump(localStorage), url: location.href };
+    });
+    expect(leaked.session).not.toContain("SEND-CANARY-ROLE");
+    expect(leaked.local).not.toContain("SEND-CANARY-ROLE");
+    expect(leaked.url).not.toContain("SEND-CANARY-ROLE");
+  });
+
   test("the footer carries a build stamp", async ({ page }) => {
     const version = page.locator(".footer-version");
     await expect(version).toBeVisible();

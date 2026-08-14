@@ -1493,7 +1493,13 @@ el.sendEval && el.sendEval.addEventListener("click", () => {
   if (!hasAnyContent(state)) return; // nothing composed yet — no-op
   const prompt = renderMarkdown(state);
   pcHandoffSet("eval-prefill", prompt);
-  window.location.assign("/eval");
+  // Ask the host app to route client-side. A full page load would tear down the
+  // in-memory handoff map and the prompt would arrive empty. The host calls
+  // preventDefault() to claim the event; with no host (standalone bundle) it is
+  // unclaimed and we fall back to a hard navigation.
+  const ev = new CustomEvent("pc:navigate", { detail: { href: "/eval" }, cancelable: true });
+  const unclaimed = window.dispatchEvent(ev);
+  if (unclaimed) window.location.assign("/eval");
 });
 
 // ---------- drafts ----------
@@ -1502,10 +1508,10 @@ el.sendEval && el.sendEval.addEventListener("click", () => {
 // drafts persist to Supabase via /api/drafts and recall on any device. Without
 // that flag (the Free site, or a non-Pro user) behaviour is unchanged:
 // localStorage only. The flag is read from the DOM so it survives SPA nav.
-const DRAFT_SYNC = (() => {
-  const kind = document.querySelector(".composer-host")?.dataset?.draftSync;
-  return kind ? { kind, endpoint: "/api/drafts" } : null;
-})();
+// Local-only build: there is no server to sync drafts to. Hard-nulled so the
+// /api/drafts branches below are provably unreachable rather than merely
+// unreached — that endpoint does not exist here.
+const DRAFT_SYNC = null;
 const DRAFTS_MIGRATED_KEY = "context.composer.drafts.migrated.v1";
 
 let serverDrafts = [];   // hydrated from the API when syncActive
