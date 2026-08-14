@@ -50,6 +50,13 @@ const CONFIG = {
   maxExamples: 3,
 };
 
+// True until the init block at the bottom has finished restoring. updatePreview()
+// persists the form as a side effect, and init calls it (via setFormat) BEFORE
+// restoreCurrent() runs — so without this latch the blank starting form is
+// written over the saved working draft, and restore then reads back the blank it
+// just wrote. That silently discarded the auto-saved draft on every load.
+let BOOTING = true;
+
 const CORE_SLOTS = ["role", "goal", "context", "bounds", "task", "success"];
 const ADDON_SLOTS = ["tools", "format", "clarify"];
 const STRING_SLOTS = [...CORE_SLOTS, ...ADDON_SLOTS];
@@ -1269,8 +1276,10 @@ function updatePreview() {
   const tokens = Math.max(0, Math.round(out.length / 4));
   el.tokenEst.innerHTML = `~${tokens} tokens <span class="token-est-suffix">· rough</span>`;
 
-  // Persist current draft
-  try { PC_STORE.setItem(CONFIG.currentKey, JSON.stringify(state)); } catch {}
+  // Persist current draft — but never during boot; see BOOTING.
+  if (!BOOTING) {
+    try { PC_STORE.setItem(CONFIG.currentKey, JSON.stringify(state)); } catch {}
+  }
 }
 
 // ---------- composition score (local, structural only) ----------
@@ -1878,6 +1887,8 @@ if (!loadedFromHash && !loadFromPrefill()) restoreCurrent();
 hydrateDrafts();
 renderLifetime();
 updatePreview();
+// Restore is done; subsequent edits may persist.
+BOOTING = false;
 autoGrowAll();
 
 

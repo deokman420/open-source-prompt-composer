@@ -282,10 +282,11 @@ test.describe("vault", () => {
     // written, and written into the vault.
     await go("Orchestra");
     await expect(page.locator("textarea").first()).toHaveValue(CANARY);
-    // Compose is covered by the localStorage sweep above: its bundle writes
-    // through PC_STORE, and a regression there would surface as the canary
-    // appearing in localStorage. Its cross-navigation re-seeding is separate,
-    // pre-existing behaviour and deliberately not asserted here.
+    // Compose must survive the round trip too. Regression: the bundle used to
+    // read from a snapshot taken at mount, so a remount could read an empty
+    // store, restore nothing, and then persist the blank form over real work.
+    await go("Compose");
+    await expect(page.locator("#fieldRole")).toHaveValue(CANARY);
   });
 
   test("the footer carries a build stamp", async ({ page }) => {
