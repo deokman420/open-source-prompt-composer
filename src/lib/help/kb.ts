@@ -41,7 +41,8 @@ The single-prompt builder. Available to any signed-in user.
 - "Export as" outputs Markdown or XML, or ready-to-run code (cURL, Python/TypeScript
   SDK) for Anthropic, OpenAI, Gemini, Bedrock, or Vertex. "Copy as Markdown" / "Copy as
   plain text" copy the result; "Send to Evaluator" hands the current prompt to AI Eval.
-- Save draft / Share link / New blank manage drafts (autosave + account sync).
+- Save draft / New blank manage drafts (autosaved to this device). "Export / backup"
+  opens Settings > Backup & restore, which writes an encrypted file of everything.
 - When to use: any single-call prompt you want to get right.
 
 ## Orchestra (/orchestra)
@@ -53,7 +54,7 @@ A builder for multi-agent / multi-call systems.
   and token estimate.
 - "Export as" outputs the prompt bundle (Markdown/XML) or runnable Python/TypeScript
   for Anthropic, OpenAI, Gemini, Bedrock, or Vertex. Copy bundle / Copy as JSON /
-  Send to Evaluator; Save draft / Share link.
+  Send to Evaluator; Save draft; "Export / backup" opens Settings > Backup & restore.
 - When to use: a task that needs more than one model call — but escalate deliberately
   (multi-agent can cost ~15x a single chat; see the escalation checklist in the
   prompt-engineering KB). Reach for the simplest pattern first.
@@ -66,7 +67,8 @@ A planner for budgeting the context window like RAM.
   handoff format between agents. A Measure panel verifies exact token counts via the
   provider tokenizer (BYOK); otherwise counts are an estimate (chars/4).
 - Export the plan as a Markdown/XML spec or as runnable scaffolding (LangGraph, n8n,
-  raw Python/TypeScript). Save / Share link / Reset to defaults.
+  raw Python/TypeScript). Save / Reset to defaults; "Export / backup" opens
+  Settings > Backup & restore.
 - When to use: long-running agents or RAG calls where sources compete for the window
   and the model is losing track of earlier instructions ("context rot").
 

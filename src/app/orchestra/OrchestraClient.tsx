@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useReducer, useState } from "react";
+import Link from "next/link";
 import PatternPicker from "./PatternPicker";
 import AgentCard from "./AgentCard";
 import CoordinationCard from "./CoordinationCard";
@@ -8,7 +9,9 @@ import Library from "./Library";
 import Drafts from "./Drafts";
 import { hasAnyContent, initialState, orchReducer } from "./state";
 import { ORCH_PATTERNS } from "@/lib/orchestra/patterns";
-import { encodeState, decodeState } from "@/lib/orchestra/share";
+// Read side only: nothing here mints #o= links any more, but links already in
+// the wild still open.
+import { decodeState } from "@/lib/orchestra/share";
 import type { OrchState, PatternId } from "@/lib/orchestra/types";
 import { scratchGet, scratchSet } from "@/lib/vault/scratch";
 import { takeHandoff } from "@/lib/handoff";
@@ -117,21 +120,6 @@ export default function OrchestraClient() {
     showToast("Saved ✓");
   }
 
-  async function share() {
-    if (!hasAnyContent(state)) {
-      showToast("Fill at least one agent first.");
-      return;
-    }
-    const encoded = encodeState(state);
-    const url = `${location.origin}${location.pathname}#o=${encoded}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast(url.length > 2000 ? `⚠ URL is long (${url.length} chars)` : "Link copied ✓");
-    } catch {
-      window.prompt("Copy this URL:", url);
-    }
-  }
-
   const pattern = ORCH_PATTERNS[state.pattern];
   const workerCount = state.agents.filter((a) => a.kind === "worker").length;
 
@@ -222,9 +210,16 @@ export default function OrchestraClient() {
             <button type="button" onClick={saveDraft} className="btn btn-secondary">
               Save draft
             </button>
-            <button type="button" onClick={share} className="btn btn-secondary">
-              Share link
-            </button>
+            {/* Was "Share link", which packed the whole orchestra into a URL
+                fragment. The encrypted backup in Settings moves the same work
+                between machines without putting it in a link. */}
+            <Link
+              href="/settings#backup"
+              className="btn btn-secondary"
+              title="Export an encrypted backup of your drafts from Settings"
+            >
+              Export / backup
+            </Link>
           </div>
         </div>
 

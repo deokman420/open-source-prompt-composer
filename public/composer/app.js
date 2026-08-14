@@ -923,7 +923,6 @@ const el = {
   sendEval: $("sendToEvalBtn"),
   newBtn: $("newBtn"),
   saveBtn: $("saveBtn"),
-  shareBtn: $("shareBtn"),
   theme: $("themeToggle"),
   draftsCard: $("draftsCard"),
   draftsList: $("draftsList"),
@@ -1812,12 +1811,10 @@ function loadArchaeology(id) {
   showToast(`Loaded: ${a.title}`);
 }
 
-// ---------- share URL ----------
-function encodeState(state) {
-  const json = JSON.stringify(state);
-  return btoa(unescape(encodeURIComponent(json)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
+// ---------- share URL (read side only) ----------
+// The app no longer mints #s= links — the action bar now points at the
+// encrypted backup in Settings instead, so prompt text never lands in a URL.
+// Decoding stays so links people already have keep opening.
 function decodeState(s) {
   try {
     s = s.replace(/-/g, "+").replace(/_/g, "/");
@@ -1825,22 +1822,6 @@ function decodeState(s) {
     return JSON.parse(decodeURIComponent(escape(atob(s))));
   } catch { return null; }
 }
-
-el.shareBtn.addEventListener("click", async () => {
-  const state = readForm();
-  if (!hasAnyContent(state)) { showToast("Fill at least one slot first."); return; }
-  const encoded = encodeState(state);
-  const url = `${location.origin}${location.pathname}#s=${encoded}`;
-  if (url.length > 2000) {
-    showToast("⚠ URL is very long — may break in some clients (" + url.length + " chars)");
-  }
-  try {
-    await navigator.clipboard.writeText(url);
-    flashBtn(el.shareBtn, "Link copied ✓");
-  } catch {
-    prompt("Copy this URL:", url);
-  }
-});
 
 function loadFromHash() {
   const hash = window.location.hash;

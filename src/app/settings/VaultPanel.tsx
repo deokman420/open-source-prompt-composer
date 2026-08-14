@@ -335,7 +335,9 @@ function BackupCard({
   }
 
   return (
-    <section className="card card-lg">
+    // #backup is a link target: the builders point their "Export / backup"
+    // action here instead of minting a share URL.
+    <section className="card card-lg" id="backup" style={{ scrollMarginTop: 90 }}>
       <h2 style={{ fontSize: "1.05rem", fontWeight: 600, marginBottom: 8 }}>
         Backup &amp; restore
       </h2>

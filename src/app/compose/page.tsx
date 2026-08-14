@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import ComposerHost from "./ComposerHost";
 
 /**
@@ -40,8 +41,8 @@ export default function ComposePage() {
           Single prompt
         </h1>
         <p className="page-sub" style={{ marginTop: "12px" }}>
-          Build prompts in a structured R-G-C-B-T-S frame. Drafts and share-links
-          stay on this device; no AI calls are made from this page.
+          Build prompts in a structured R-G-C-B-T-S frame. Drafts stay on this
+          device; no AI calls are made from this page.
         </p>
 
         <div
@@ -263,7 +264,17 @@ export default function ComposePage() {
               <div className="form-actions">
                 <button id="newBtn" type="button" className="link-btn">New blank prompt</button>
                 <button id="saveBtn" type="button" className="link-btn">Save draft</button>
-                <button id="shareBtn" type="button" className="link-btn">Share link</button>
+                {/* Was a "Share link" button that packed the whole prompt into
+                    a URL fragment. Moving people to the encrypted backup in
+                    Settings keeps prompt text out of links, history, and
+                    anything that logs URLs. */}
+                <Link
+                  href="/settings#backup"
+                  className="link-btn"
+                  title="Export an encrypted backup of your drafts from Settings"
+                >
+                  Export / backup
+                </Link>
               </div>
             </form>
 

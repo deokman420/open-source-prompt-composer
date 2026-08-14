@@ -9,8 +9,10 @@ import { useVault } from "@/lib/vault/store";
  *
  * The bundle is the free site's original, DOM-driven composer — ~1,900 lines of
  * proven logic for the R-G-C-B-T-S frame, live preview, export formats, starter
- * templates, and share links. It ships as-is with exactly one change: every
- * storage call goes through `PC_STORE` instead of `localStorage`.
+ * templates, and export formats. It ships nearly as-is: every storage call goes
+ * through `PC_STORE` instead of `localStorage`, and the share-link writer is
+ * gone (the action bar points at the encrypted backup in Settings instead —
+ * only the `#s=` reader remains, so old links still open).
  *
  * This component supplies that PC_STORE.
  *

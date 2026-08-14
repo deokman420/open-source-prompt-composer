@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import KeyNudge from "@/app/_shared/KeyNudge";
 
 export const metadata: Metadata = {
   title: "Prompt Composer — local-first prompt engineering",
@@ -54,21 +55,6 @@ export default function HomePage() {
         database holding your work.
       </p>
 
-      <div className="card card-lg card-accent" style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: "1.05rem", fontWeight: 600, marginBottom: 10 }}>
-          Bring your own key
-        </h2>
-        <p className="muted" style={{ marginBottom: 16 }}>
-          Add a key from Anthropic, OpenAI, Google, xAI, NVIDIA, OpenRouter, or
-          DeepSeek and every AI-backed feature turns on. Requests pass through
-          this site only to reach the provider — nothing is stored or logged on
-          the way.
-        </p>
-        <Link href="/settings" className="btn btn-primary">
-          Add an API key
-        </Link>
-      </div>
-
       <div
         style={{
           display: "grid",
@@ -88,6 +74,8 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
+
+      <KeyNudge />
 
       <div className="card card-quiet card-dashed" style={{ marginTop: 32 }}>
         <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 10 }}>

@@ -629,6 +629,11 @@ button { font: inherit; color: inherit; }
 }
 .link-btn.copied { color: var(--accent); border-color: var(--accent); }
 
+/* The action row mixes <button>s with one <a> (Export / backup → Settings).
+   Match the button box so the row stays even. */
+a.link-btn { display: inline-flex; align-items: center; text-decoration: none; }
+a.link-btn:hover { opacity: 1; }
+
 /* ========================================================================
    Suggestion chips
    ======================================================================== */

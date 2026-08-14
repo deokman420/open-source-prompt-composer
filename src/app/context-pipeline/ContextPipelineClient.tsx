@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useReducer, useState } from "react";
+import Link from "next/link";
 import SourcesStage from "./SourcesStage";
 import BudgetStage from "./BudgetStage";
 import MeasurePanel from "./MeasurePanel";
@@ -8,7 +9,9 @@ import HandoffStage from "./HandoffStage";
 import PipelinePreview from "./PipelinePreview";
 import Drafts from "./Drafts";
 import { ctxReducer, initialState, hasAnyContent } from "./state";
-import { encodeState, decodeState } from "@/lib/context-pipeline/share";
+// Read side only: nothing here mints #c= links any more, but links already in
+// the wild still open.
+import { decodeState } from "@/lib/context-pipeline/share";
 import type { CtxState } from "@/lib/context-pipeline/types";
 import { scratchGet, scratchSet } from "@/lib/vault/scratch";
 import { takeHandoff } from "@/lib/handoff";
@@ -93,17 +96,6 @@ export default function ContextPipelineClient() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function share() {
-    const encoded = encodeState(state);
-    const url = `${location.origin}${location.pathname}#c=${encoded}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast(url.length > 2000 ? `⚠ URL is long (${url.length} chars)` : "Link copied ✓");
-    } catch {
-      window.prompt("Copy this URL:", url);
-    }
-  }
-
   return (
     <div className="space-y-6">
       {toast && (
@@ -144,9 +136,16 @@ export default function ContextPipelineClient() {
             <button type="button" onClick={newBlank} className="text-sm text-[var(--text-dim)] hover:text-[var(--text)]">
               Reset to defaults
             </button>
-            <button type="button" onClick={share} className="text-sm text-[var(--text-dim)] hover:text-[var(--text)]">
-              Share link
-            </button>
+            {/* Was "Share link", which packed the whole pipeline into a URL
+                fragment. The encrypted backup in Settings moves the same work
+                between machines without putting it in a link. */}
+            <Link
+              href="/settings#backup"
+              className="text-sm text-[var(--text-dim)] hover:text-[var(--text)]"
+              title="Export an encrypted backup of your drafts from Settings"
+            >
+              Export / backup
+            </Link>
           </div>
 
           <Drafts
