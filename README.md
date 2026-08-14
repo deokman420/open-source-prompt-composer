@@ -127,6 +127,33 @@ Static export is *not* supported: the proxy needs a server runtime. If you want
 a fully static build you'd have to call providers directly from the browser and
 accept that several of them will fail CORS.
 
+### Versioning
+
+`npm run deploy` is the deploy path for the hosted instance. It stamps the
+version, deploys, and pushes the tag:
+
+```bash
+npm run deploy        # version-stamp → vercel deploy --prod → git push --follow-tags
+npm run version:check # print the version this commit would ship as
+```
+
+The version is derived from git rather than edited by hand:
+
+```
+version = <last tag's major>.<minor>.<patch + commits since that tag>
+```
+
+so `v0.2.0` plus one commit ships as `0.2.1`. Only the patch moves
+automatically — a minor or major release is a judgement call, so tag it
+yourself (`git tag v0.3.0`) and the count continues from there.
+
+This matters beyond bookkeeping. The version feeds the footer build stamp *and*
+`NEXT_PUBLIC_ASSET_VERSION`, the cache buster on `/public/composer/app.js` —
+which sits at a fixed path Next never fingerprints, so a stale copy of it against
+new HTML shows up as features quietly not binding. It's resolved on the deploying
+machine because `.vercelignore` excludes `.git`, leaving a Vercel build with no
+repository to count commits in.
+
 ---
 
 ## Development

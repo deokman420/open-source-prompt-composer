@@ -15,7 +15,10 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test scripts/test-*.mts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "version:stamp": "node scripts/version-stamp.mjs",
+    "version:check": "node scripts/version-stamp.mjs --check",
+    "deploy": "node scripts/version-stamp.mjs && vercel deploy --prod && git push --follow-tags"
   },
   "dependencies": {
     "next": "^15.3.0",
