@@ -502,11 +502,18 @@ function BackupCard({
             autoComplete="off"
             spellCheck={false}
           />
+          {/* A file input announces only "button, browse" without this — the
+              surrounding prose is not attached to it, so a screen-reader user
+              reaches an unlabelled control and cannot tell what it wants. */}
+          <label className="field-label" htmlFor="import-file" style={{ marginTop: 8 }}>
+            Backup file
+          </label>
           <input
             ref={fileRef}
+            id="import-file"
             type="file"
             accept="application/json,.json"
-            style={{ marginTop: 8, fontSize: "0.8rem" }}
+            style={{ fontSize: "0.8rem" }}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void doImport(file);

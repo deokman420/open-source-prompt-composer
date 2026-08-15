@@ -144,7 +144,9 @@ export default function LivePreview({ state }: { state: OrchState }) {
 
       <p className="fmt-caption">{caption}</p>
 
-      <pre className="preview-text">{output}</pre>
+      <pre className="preview-text" tabIndex={0} role="region" aria-label="Orchestra bundle preview">
+        {output}
+      </pre>
 
       <div className="preview-actions">
         <button type="button" className="copy-btn primary" onClick={() => copy(output, "bundle")}>

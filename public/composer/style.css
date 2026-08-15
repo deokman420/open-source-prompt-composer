@@ -21,7 +21,7 @@
   --bad: #ef4444;
   --text: #e2e8f0;
   --text-dim: #8492a6;
-  --text-muted: #4a5568;
+  --text-muted: #7a89a0;
   --font: var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: var(--font-jbmono, 'JetBrains Mono'), ui-monospace, SFMono-Regular, Consolas, monospace;
   --radius: 12px;

@@ -138,7 +138,9 @@ export default function PipelinePreview({
           : "Portable spec of this context plan."}
       </p>
 
-      <pre className="preview-text">{output}</pre>
+      <pre className="preview-text" tabIndex={0} role="region" aria-label="Context plan export">
+        {output}
+      </pre>
 
       <div className="preview-actions">
         <button type="button" className="copy-btn primary" onClick={copy}>

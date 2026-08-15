@@ -46,15 +46,30 @@ export default function HandoffStage({
                 <span className="text-sm font-medium text-[var(--text)]">{f.label}</span>
                 {f.badge && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                      f.badgeTone === "good" ? "bg-[rgba(16,185,129,0.15)] text-[var(--good)]" : "bg-[rgba(239,68,68,0.15)] text-[var(--bad)]"
+                    /* Opaque --bg, not a translucent semantic tint. The tint
+                       composited over whatever the card is showing, and on the
+                       selected card (which is itself accent-tinted) that lifted
+                       the backdrop enough to drop both badges under 4.5:1 —
+                       4.31 for good, 4.06 for bad. A fixed dark ground makes
+                       the ratio independent of the card's state; the border
+                       carries the tone the fill used to. */
+                    className={`rounded-full border bg-[var(--bg)] px-1.5 py-0.5 text-[10px] ${
+                      f.badgeTone === "good"
+                        ? "border-[rgba(16,185,129,0.4)] text-[var(--good)]"
+                        : "border-[rgba(239,68,68,0.4)] text-[var(--bad)]"
                     }`}
                   >
                     {f.badge}
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-[11px] text-[var(--text-muted)]">{f.desc}</p>
+              {/* The selected card tints its own background with --accent-dim,
+                  lifting the backdrop under this line to #122f31. Neither muted
+                  nor dim clears 4.5:1 there — dim lands at 4.49, which is a
+                  fail, not a rounding argument. --text does, and the selected
+                  card is the one that should read most clearly anyway; 11px
+                  against the 14px medium title still ranks it as secondary. */}
+              <p className={`mt-1 text-[11px] ${active ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>{f.desc}</p>
             </button>
           );
         })}

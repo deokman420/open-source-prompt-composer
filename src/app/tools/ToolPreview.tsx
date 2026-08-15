@@ -66,7 +66,9 @@ export default function ToolPreview({ tool }: { tool: ToolDef }) {
         disabled while there are validation errors.
       </p>
 
-      <pre className="preview-text">{json}</pre>
+      <pre className="preview-text" tabIndex={0} role="region" aria-label="Tool definition JSON">
+        {json}
+      </pre>
 
       <div className="preview-actions">
         <button

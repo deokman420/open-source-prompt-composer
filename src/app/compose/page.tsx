@@ -339,7 +339,7 @@ export default function ComposePage() {
               <p id="fmtCaption" className="fmt-caption">
                 Markdown works in any agent; switch to XML when targeting Claude with mixed content.
               </p>
-              <pre id="preview" className="preview-text" aria-live="polite"></pre>
+              <pre id="preview" className="preview-text" tabIndex={0} role="region" aria-label="Composed prompt" aria-live="polite"></pre>
               <div className="preview-actions">
                 <button id="copyMdBtn" className="copy-btn primary" type="button">Copy as Markdown</button>
                 <button id="copyTxtBtn" className="copy-btn" type="button">Copy as plain text</button>

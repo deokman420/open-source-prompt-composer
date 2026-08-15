@@ -306,7 +306,10 @@ function HelpCard({
       <p style={{ fontSize: "0.9rem", lineHeight: 1.6, marginTop: "10px" }}>
         <strong>When to use:</strong> {when}
       </p>
-      <pre style={{
+      {/* whiteSpace:"pre" + overflow:auto makes this a scroll container, and a
+          scroll container a keyboard user cannot focus is a region they cannot
+          read. tabIndex makes it reachable; the label says which example. */}
+      <pre tabIndex={0} role="region" aria-label={`${title} — example`} style={{
         marginTop: "12px",
         padding: "12px 14px",
         background: "var(--bg-card-2)",
