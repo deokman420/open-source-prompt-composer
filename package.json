@@ -1,6 +1,6 @@
 {
   "name": "prompt-composer",
-  "version": "0.2.4",
+  "version": "0.2.6",
   "private": false,
   "license": "MIT",
   "description": "Local-first prompt engineering workbench. Bring your own API key; everything stays encrypted in your browser.",
