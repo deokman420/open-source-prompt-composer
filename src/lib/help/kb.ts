@@ -61,11 +61,15 @@ A builder for multi-agent / multi-call systems.
 
 ## Context Pipeline (/context-pipeline)
 A planner for budgeting the context window like RAM.
-- How to use it: declare each context source (pinned instructions, retrieved chunks,
-  history, scratchpad, shared store) as a line item with a token allocation; set
-  eviction triggers (what falls out and when); define history compaction and the
-  handoff format between agents. A Measure panel verifies exact token counts via the
-  provider tokenizer (BYOK); otherwise counts are an estimate (chars/4).
+- How to use it: pick a target model so the window and sliders match it — the
+  picker includes Anthropic, OpenAI, Gemini, xAI (Grok), NVIDIA, OpenRouter, and
+  DeepSeek. Grok 4.6 / 4.5 are 500k; Grok 4.3 and the 4.20 pair are 1M. Then
+  declare each context source (pinned instructions, retrieved chunks, history,
+  scratchpad, shared store) as a line item with a token allocation; set eviction
+  triggers (what falls out and when); define history compaction and the handoff
+  format between agents. A Measure panel verifies exact token counts via the
+  provider tokenizer when one exists (Anthropic, Gemini). xAI and the other
+  OpenAI-compatible providers fall back to a chars/4 estimate.
 - Export the plan as a Markdown/XML spec or as runnable scaffolding (LangGraph, n8n,
   raw Python/TypeScript). Save / Reset to defaults; "Export / backup" opens
   Settings > Backup & restore.
@@ -124,8 +128,9 @@ answers stream in. It runs on your own API key, like every other AI-backed featu
 ## API keys / BYOK (/settings)
 "Bring Your Own Key": store one or more provider API keys — supported providers are
 Anthropic, OpenAI, Google (Gemini), xAI (Grok), NVIDIA (NIM), OpenRouter, and DeepSeek.
-Note JSON/Eval support is per-model: DeepSeek and the original three are Eval-enabled,
-while xAI/NVIDIA/OpenRouter models are chat-only (AI Help) until confirmed for Eval. Keys are
+Note JSON/Eval support is per-model: Anthropic, OpenAI, Google, xAI (Grok), and DeepSeek
+are Eval-enabled (they honor JSON-object output). NVIDIA and OpenRouter stay chat-only
+(AI Help) until confirmed per model. Keys are
 encrypted at rest (AES-256-GCM, envelope-wrapped per row) and only decrypted in memory
 for a single call — never logged, never shown in plaintext (only the last 4 characters,
 for recognition).
@@ -157,7 +162,13 @@ their provider account (BYOK) — adding a key here never bills them through us.
   billing enabled on the project.
 - **xAI (Grok)** — go to console.x.ai (sign in with X / xAI). Finish onboarding, then
   **API Keys → Create API Key** → name it → copy. Starts **xai-**. Prepaid: add a card/credits
-  under **Billing**; new accounts often get promotional credit that expires.
+  under **Billing**; new accounts often get promotional credit that expires. Current
+  lineup (docs.x.ai, 2026-08): **grok-4.6** is the flagship and the default in Eval
+  and AI Help — most capable and fastest, 500k context, structured JSON output so it
+  works as an eval grader. **grok-4.5** is the previous flagship (also 500k).
+  **grok-4.3** is cheaper with a 1M window. The **grok-4.20** reasoning / non-reasoning
+  pair remains for latency or deep-reasoning A/B. Knowledge cutoff for 4.6 is
+  2026-02-01.
 - **NVIDIA NIM** — go to build.nvidia.com (sign in / create a free NVIDIA account). Open any
   model card and click **Get API Key** (or **Build with this NIM**) → **Generate** → copy. Starts
   **nvapi-**; one key works across all hosted models. Free credits to start, no card required.
@@ -189,9 +200,10 @@ has a tab per kind (search, rename, open back into the editor).
   selected provider matches a key you added. There is no usage cap in this build.
 - "Where's my spend?" → entirely on your own provider account (BYOK). This app never
   bills you for anything.
-- "Which model should I pick?" → the cheapest model (Haiku / GPT mini / Flash) is the
-  default and is plenty for help and most eval modes; pick a stronger one for hard
-  reasoning or code review.`;
+- "Which model should I pick?" → the system default is Claude Sonnet 5; cheapest
+  options (Haiku / GPT mini / Flash) are plenty for help and most eval modes. On
+  xAI, pick **Grok 4.6** — it is the current flagship for chat, code, and eval.
+  Step up to a stronger model only for hard reasoning or code review.`;
 
 export const PROMPT_ENGINEERING_KB = `# Context & prompt engineering — field guide
 
@@ -234,7 +246,7 @@ the slots so the model can't confuse them.
 ## Reasoning-era models (what changed, and what to delete)
 Most published prompt advice — including several techniques above — was written
 for models that under-reasoned and needed pushing. Current frontier models
-(Claude Opus 5 / Sonnet 5 / Fable 5 and peers) reason by default and follow
+(Claude Opus 5 / Sonnet 5 / Fable 5, Grok 4.6, and peers) reason by default and follow
 instructions literally, so the old counterweights push the wrong way. When a user
 asks why a prompt behaves differently on a new model, start here. The rule of
 thumb: delete more than you add.

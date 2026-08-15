@@ -200,7 +200,7 @@ export default function HelpKbPage() {
         <p className="muted" style={{ marginBottom: "20px" }}>
           Most published prompt advice — including several cards in §2 — was written for models
           that under-reasoned, under-delivered, and needed pushing. Current frontier models
-          (Claude Opus 5 / Sonnet 5 / Fable 5, and their peers) reason by default and follow
+          (Claude Opus 5 / Sonnet 5 / Fable 5, Grok 4.6, and their peers) reason by default and follow
           instructions literally, so the old counterweights now push the wrong way. These five
           cards are the corrections. The short version: <strong>delete more than you add</strong>.
         </p>

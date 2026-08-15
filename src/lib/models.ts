@@ -20,9 +20,10 @@ export type ModelInfo = {
 // published model names and should still be confirmed against the live
 // `GET {baseUrl}/v1/models` once a BYOK key is on file (see
 // docs/BYOK_PROVIDER_KEYS.md and `scripts/verify-models.mjs`). xAI was
-// reconciled with docs.x.ai on 2026-06 (grok-4.3 / grok-4.20 family; grok-3/4
-// retired). The adapter/routing is ID-independent; only this list and
-// context-pipeline/models.ts need updating when real IDs are confirmed.
+// reconciled with docs.x.ai on 2026-08 (grok-4.6 flagship; grok-4.5 / 4.3 /
+// 4.20 family kept; grok-3/4 retired). The adapter/routing is ID-independent;
+// only this list and context-pipeline/models.ts need updating when real IDs
+// are confirmed.
 export const PROVIDER_MODELS: Record<Provider, ModelInfo[]> = {
   anthropic: [
     { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", note: "fast · cheap" },
@@ -49,7 +50,9 @@ export const PROVIDER_MODELS: Record<Provider, ModelInfo[]> = {
   // confirm json_object support per model. xAI (Grok) and DeepSeek support
   // strict JSON output, so they're eval-enabled out of the box.
   xai: [
-    { id: "grok-4.3", label: "Grok 4.3", note: "recommended · fast" },
+    { id: "grok-4.6", label: "Grok 4.6", note: "flagship · recommended" },
+    { id: "grok-4.5", label: "Grok 4.5", note: "prev gen" },
+    { id: "grok-4.3", label: "Grok 4.3", note: "1M context · cheaper" },
     { id: "grok-4.20-0309-reasoning", label: "Grok 4.20 reasoning", note: "deep reasoning" },
     { id: "grok-4.20-0309-non-reasoning", label: "Grok 4.20 non-reasoning", note: "low latency" },
   ],
@@ -76,7 +79,7 @@ export const DEFAULT_MODEL: Record<Provider, string> = {
   anthropic: "claude-sonnet-5",
   openai: "gpt-5.4-mini",
   google: "gemini-3.5-flash",
-  xai: "grok-4.3",
+  xai: "grok-4.6",
   nvidia: "meta/llama-3.3-70b-instruct",
   openrouter: "deepseek/deepseek-chat",
   deepseek: "deepseek-chat",

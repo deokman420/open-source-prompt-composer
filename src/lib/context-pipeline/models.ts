@@ -35,6 +35,8 @@ export const CTX_MODELS: Record<CtxProvider, CtxModel[]> = {
   // Windows below are reference values from each provider's docs — editable as
   // they change. IDs mirror src/lib/models.ts; confirm against GET /v1/models.
   xai: [
+    { id: "grok-4.6", label: "Grok 4.6", provider: "xai", window: 500_000 },
+    { id: "grok-4.5", label: "Grok 4.5", provider: "xai", window: 500_000 },
     { id: "grok-4.3", label: "Grok 4.3", provider: "xai", window: 1_000_000 },
     { id: "grok-4.20-0309-reasoning", label: "Grok 4.20 reasoning", provider: "xai", window: 1_000_000 },
     { id: "grok-4.20-0309-non-reasoning", label: "Grok 4.20 non-reasoning", provider: "xai", window: 1_000_000 },

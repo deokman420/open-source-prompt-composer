@@ -4,6 +4,7 @@ import type { CtxState } from "@/lib/context-pipeline/types";
 import type { CtxAction } from "./state";
 import { computeCtxHealth } from "@/lib/context-pipeline/health";
 import { CTX_MODELS } from "@/lib/context-pipeline/models";
+import { PROVIDER_LABELS, PROVIDER_ORDER } from "@/lib/models";
 import { CTX_TARGETS, renderCtxExport, type CtxTargetKey } from "@/lib/context-pipeline/exporters";
 import { ctxToOrchSeed } from "@/lib/context-pipeline/to-orchestra";
 import { encodeState as encodeOrchState } from "@/lib/orchestra/share";
@@ -82,27 +83,17 @@ export default function PipelinePreview({
             onChange={(e) => dispatch({ type: "setModel", model: e.target.value })}
             aria-label="Target model"
           >
-            <optgroup label="Anthropic">
-              {CTX_MODELS.anthropic.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} · {Math.round(m.window / 1000)}k
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="OpenAI">
-              {CTX_MODELS.openai.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} · {Math.round(m.window / 1000)}k
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Google Gemini">
-              {CTX_MODELS.google.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} · {Math.round(m.window / 1000)}k
-                </option>
-              ))}
-            </optgroup>
+            {PROVIDER_ORDER.map((p) =>
+              CTX_MODELS[p]?.length ? (
+                <optgroup key={p} label={PROVIDER_LABELS[p]}>
+                  {CTX_MODELS[p].map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label} · {Math.round(m.window / 1000)}k
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null
+            )}
           </select>
         </label>
 

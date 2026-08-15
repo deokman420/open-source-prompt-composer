@@ -3,6 +3,7 @@ import { useState, type Dispatch } from "react";
 import { SOURCE_META, type CtxState, type SourceKey } from "@/lib/context-pipeline/types";
 import { enabledSources, fmtK } from "@/lib/context-pipeline/budget";
 import { findCtxModel } from "@/lib/context-pipeline/models";
+import { PROVIDER_LABELS } from "@/lib/models";
 import type { CtxAction } from "./state";
 import { useKeys } from "@/lib/vault/hooks";
 
@@ -37,7 +38,7 @@ export default function MeasurePanel({
       const provider = findCtxModel(state.model).provider;
       const apiKey = getKey(provider);
       if (!apiKey) {
-        setError(`No ${provider} key saved — add one in Settings to count exactly.`);
+        setError(`No ${PROVIDER_LABELS[provider]} key saved — add one in Settings to count exactly.`);
         return;
       }
       const res = await fetch("/api/count-tokens", {
@@ -63,7 +64,7 @@ export default function MeasurePanel({
     dispatch({ type: "setSourceTokens", key: effectiveTarget, tokens: result.tokens });
   }
 
-  const providerLabel = findCtxModel(state.model).provider;
+  const providerLabel = PROVIDER_LABELS[findCtxModel(state.model).provider];
 
   return (
     <section className="rounded border border-[var(--border)] bg-[var(--bg-card)] p-3">
