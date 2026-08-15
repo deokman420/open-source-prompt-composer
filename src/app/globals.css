@@ -51,6 +51,13 @@
   --radius-lg:       16px;
   --shadow:          0 4px 14px rgba(0, 0, 0, 0.35);
 
+  /* Height of the sticky .topnav. Anything that pins itself just under the
+     header — the help TOC, the vault passphrase sheet — offsets by this rather
+     than by a copy of the number, which is how the mobile bar and the "55px"
+     the offsets assumed drifted apart when the burger went in. Overridden in
+     the ≤720px block, where the 44px tap target makes the bar taller. */
+  --nav-h:           59px;
+
   /* Canonical backdrop (Option B) — see phbeks-tokens.css */
   --backdrop: linear-gradient(180deg, rgba(0,212,170,0.05) 0%, transparent 42%),
               radial-gradient(90% 60% at 100% 0%, rgba(59,130,246,0.05) 0%, transparent 55%),
@@ -152,9 +159,13 @@ code, pre { font-family: var(--mono); }
 
 /* Mobile nav: hamburger trigger + left slide-out drawer (trigger shown ≤720px) */
 .nav-burger {
-  display: none; flex-direction: column; gap: 4px;
-  background: transparent; border: 0; padding: 8px 6px; cursor: pointer; border-radius: 8px;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: transparent; border: 0; padding: 8px; cursor: pointer; border-radius: 8px;
+  /* 44px is the smallest reliably tappable target on a phone; the three 2px
+     bars are nowhere near that on their own. */
+  min-width: 44px; min-height: 44px; margin-left: -8px;
 }
+.nav-burger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nav-burger span { display: block; width: 20px; height: 2px; background: var(--text-dim); border-radius: 2px; transition: background 0.15s ease; }
 .nav-burger:hover span { background: var(--text); }
 .nav-overlay {
@@ -165,11 +176,15 @@ code, pre { font-family: var(--mono); }
 .nav-drawer {
   position: fixed; top: 0; left: 0; height: 100dvh; width: min(82vw, 300px); z-index: 41;
   background: var(--bg-card); border-right: 1px solid var(--border-strong);
-  transform: translateX(-100%); transition: transform 0.22s ease;
+  transform: translateX(-100%); transition: transform 0.22s ease, visibility 0.22s;
   display: flex; flex-direction: column; gap: 6px; overflow-y: auto;
   padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  /* Off-screen is not out of the tab order. Without visibility:hidden a
+     keyboard or screen-reader user — at any width, since the drawer markup is
+     always in the DOM — walks into a menu that isn't on screen. */
+  visibility: hidden;
 }
-.nav-drawer.is-open { transform: translateX(0); }
+.nav-drawer.is-open { transform: translateX(0); visibility: visible; }
 .nav-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .nav-drawer-close {
   background: transparent; border: 0; color: var(--text-dim); font-size: 1.1rem; line-height: 1;
@@ -181,6 +196,8 @@ code, pre { font-family: var(--mono); }
 .nav-drawer-links .topnav-link.is-active { color: var(--accent); }
 
 @media (max-width: 720px) {
+  /* The 44px burger sets the row height here, not the 10px padding. */
+  :root { --nav-h: 65px; }
   .topnav-inner { gap: 12px; padding: 10px 16px; }
   /* Higher specificity (.topnav .topnav-links) so this wins over /composer/style.css,
      which is loaded after globals.css on /compose and re-shows the links otherwise. */
@@ -188,14 +205,23 @@ code, pre { font-family: var(--mono); }
   .nav-burger { display: inline-flex; }
   /* The links carried flex:1; with them hidden, push Account + the profile
      button to the far right corner instead of bunching beside the brand. */
-  .topnav-right { margin-left: auto; }
+  .topnav-right { margin-left: auto; min-width: 0; gap: 10px; }
+  /* Settings lives at the bottom of the drawer on mobile. Two copies of it in
+     a 16px-padded bar is what pushed the vault chip off the right edge.
+     Specificity again beats /composer/style.css, which sets .topnav-link to
+     display:inline-flex and loads after globals.css on /compose. */
+  .topnav .topnav-right .topnav-link-settings { display: none; }
+  /* Burger + brand + chip on a 320px screen: the brand is the only elastic
+     one, and white-space:nowrap on a flex item without min-width:0 let it get
+     clipped mid-word instead of shrinking. Shrink it, then ellipsize. */
+  .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
   .page { padding: 28px 16px 48px; }
-  /* Help TOC: a clean sticky bar flush under the 55px header (collapsed by
+  /* Help TOC: a clean sticky bar flush under the header (collapsed by
      default via HelpTocMobile). top:55 + margin:0 + squared top corners close
      the gap that previously let body text peek through and read as overlap;
      the shadow makes it clearly sit above the scrolling content. */
   .help-toc-card {
-    position: sticky; top: 55px; z-index: 10;
+    position: sticky; top: var(--nav-h); z-index: 10;
     margin: 0 0 4px; max-height: 70vh; overflow-y: auto;
     border-top-left-radius: 0; border-top-right-radius: 0;
     border-top: 0;
@@ -506,6 +532,19 @@ code, pre { font-family: var(--mono); }
   margin-bottom: 6px;
 }
 
+/* iOS Safari zooms the whole viewport when a control with a computed font-size
+   below 16px takes focus, and never zooms back out. At 0.875rem every field in
+   the app triggers it — including the passphrase inputs, where the zoom lands
+   mid-form and drags the layout sideways. The help chat had a local fix for
+   this; the threshold is global, so the rule is too.
+
+   16px literal, not 1rem: `html { font-size: 15px }` above makes 1rem = 15px,
+   which is still under the threshold — the old help-chat rule used 1rem and so
+   never actually stopped the zoom. */
+@media (max-width: 720px) {
+  .input, .select, .textarea { font-size: 16px; }
+}
+
 /* ------------------------------------------------------------------------
    Description list (account dashboard rows)
    ------------------------------------------------------------------------ */
@@ -586,20 +625,20 @@ code, pre { font-family: var(--mono); }
    ------------------------------------------------------------------------ */
 /* Desktop only — mobile gets a flush sticky bar (see ≤720px block above). */
 /* Desktop: the TOC follows you down the page (Nathan's bug — it used to scroll
-   away). Sticky under the 55px header, bounded height with its own scroll so a
+   away). Sticky under the header, bounded height with its own scroll so a
    long open list never eats the viewport; solid card bg + shadow keep body text
    from reading through it. It stays <details open> here (unlike mobile, which
    force-collapses via HelpTocMobile). */
 @media (min-width: 721px) {
   .help-toc-card {
     margin-top: 20px;
-    position: sticky; top: 55px; z-index: 10;
-    max-height: calc(100vh - 75px); overflow-y: auto;
+    position: sticky; top: var(--nav-h); z-index: 10;
+    max-height: calc(100vh - var(--nav-h) - 20px); overflow-y: auto;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
   }
 }
 
-/* TOC anchor targets clear the 55px sticky header (plus the collapsed sticky
+/* TOC anchor targets clear the sticky header (plus the collapsed sticky
    TOC bar on mobile) so a tapped link doesn't land the section underneath. */
 section[id^="help-"] { scroll-margin-top: 72px; }
 @media (max-width: 720px) { section[id^="help-"] { scroll-margin-top: 112px; } }
@@ -641,11 +680,7 @@ section[id^="help-"] { scroll-margin-top: 72px; }
   /* Suggestion chips become full-width tap targets on mobile. */
   .help-chat-suggestions { flex-direction: column; }
   .help-chat-suggestions .btn { width: 100%; justify-content: flex-start; }
-  /* iOS Safari zooms the viewport on focus for any input whose computed
-     font-size is below 16px. Both .select (0.875rem) and .textarea (0.875rem)
-     are under that threshold; bump to 1rem within the help chat only. */
-  .help-chat-card .select,
-  .help-chat-composer .textarea { font-size: 1rem; }
+  /* (The 16px iOS zoom floor is handled globally in Form controls.) */
   /* The global .textarea sets min-height:140px for full-page editors.
      The 2-row composer doesn't need it and wastes vertical space on a phone.
      Also kill the resize handle — dragging a textarea height is a desktop
@@ -770,6 +805,10 @@ section[id^="help-"] { scroll-margin-top: 72px; }
   border-radius: 999px;
   padding: 4px 10px;
   background: var(--bg-card);
+  /* "Protected · locked" wrapped to two lines at phone widths, which grew the
+     header past the height other rules assume (the help TOC offset, the vault
+     sheet offset). Keep the chip one line and let the bar keep its height. */
+  white-space: nowrap;
 }
 .vault-chip[data-state="unlocked"] { color: var(--accent); border-color: var(--accent-soft); }
 .vault-chip[data-state="locked"]   { color: var(--warn);   border-color: rgba(245,158,11,0.3); }
@@ -811,7 +850,29 @@ section[id^="help-"] { scroll-margin-top: 72px; }
 }
 .vault-pop .muted-strong { margin-top: 8px; font-size: 0.72rem; }
 
-@media (max-width: 520px) {
-  /* Keep the popover on screen when the chip sits near the right edge. */
-  .vault-pop { right: auto; left: 50%; transform: translateX(-50%); width: min(290px, 88vw); }
+/* On a phone the chip sits at the right edge of a 16px-padded bar, so a 290px
+   popover hung off it ran past the screen — and centering it on the chip
+   (the previous ≤520px rule) only moved the overflow, since the chip itself is
+   near the edge. Below the nav breakpoint it stops being a popover and becomes
+   a sheet pinned to both viewport edges under the header.
+
+   position:fixed resolves against .topnav rather than the viewport, because
+   .topnav's backdrop-filter makes it a containing block for fixed descendants.
+   That is fine and intended here: .topnav is a full-width bar at top:0, so its
+   border box and the viewport agree on all four of these offsets — but only
+   for absolute lengths, so top is --nav-h plus a gap, never a percentage. */
+@media (max-width: 720px) {
+  .vault-pop {
+    position: fixed;
+    top: calc(var(--nav-h) + 6px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+    transform: none;
+    /* The on-screen keyboard can leave less room than the form needs; scroll
+       the sheet instead of pushing the submit button past the fold. */
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
