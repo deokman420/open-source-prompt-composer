@@ -272,7 +272,7 @@ export default function HelpKbPage() {
           behind the Tool Builder), loop engineering for Claude Code&apos;s /loop scheduled tasks
           (the model behind the Loops tab), and curated primary-source references.
         </p>
-        <ProSections />
+        <AdvancedSections />
       </section>
 
       <p className="muted-strong" style={{ marginTop: "48px", fontSize: "0.78rem" }}>
@@ -327,21 +327,12 @@ function HelpCard({
   );
 }
 
-function LockedNotice() {
-  return (
-    <div className="card card-accent">
-      <p style={{ color: "var(--text)", marginBottom: "12px" }}>
-        Sections §3-§8 are part of the Pro plan ($9/month).
-      </p>
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <Link href="/pricing" className="btn btn-primary">See pricing</Link>
-        <Link href="/sign-in" className="btn btn-secondary">Sign in &rarr;</Link>
-      </div>
-    </div>
-  );
-}
-
-function ProSections() {
+// Sections §3-§8 used to sit behind the Pro plan, gated by a LockedNotice card
+// that linked to /pricing and /sign-in. Both routes went away with the free/Pro
+// merge and the whole KB is public now, so the gate is deleted rather than left
+// dead: it was still shipping a "$9/month" claim and two 404 links to anyone who
+// re-rendered it.
+function AdvancedSections() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
       {/* §3 — Orchestration patterns */}
