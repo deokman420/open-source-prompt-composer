@@ -41,6 +41,11 @@ The single-prompt builder. Available to any signed-in user.
 - "Export as" outputs Markdown or XML, or ready-to-run code (cURL, Python/TypeScript
   SDK) for Anthropic, OpenAI, Gemini, Bedrock, or Vertex. "Copy as Markdown" / "Copy as
   plain text" copy the result; "Send to Evaluator" hands the current prompt to AI Eval.
+- Every code export puts the composed frame in the provider's **system** slot (Anthropic
+  top-level system, OpenAI role:system, Gemini systemInstruction) and leaves a short
+  kickoff placeholder as the user turn. That mirrors how production prompts actually
+  ship — a durable system document plus a per-run kickoff message. Replace the
+  placeholder with the run-specific input; don't paste it back into the frame.
 - Save draft / New blank manage drafts (autosaved to this device). "Export / backup"
   opens Settings > Backup & restore, which writes an encrypted file of everything.
 - When to use: any single-call prompt you want to get right.
@@ -258,17 +263,30 @@ thumb: delete more than you add.
 - **Sampling parameters are gone**: temperature / top_p / top_k are a 400 on Opus 5,
   Sonnet 5, Fable 5, Opus 4.7+. For repeatability, tighten the prompt and lower
   effort. For variety, ask for it ("propose 4 distinct approaches, then pick one").
-- **Delete verification instructions**: "double-check", "verify before responding",
-  and separate verification passes cause over-verification — these models already
-  check their own work. Removing them costs no accuracy. This inverts the older
-  self-check best practice.
+- **Delete verification instructions — but not evidentiary discipline**: "double-check",
+  "verify before responding", and separate verification passes cause over-verification
+  — these models already check their own work. Removing them costs no accuracy. This
+  inverts the older self-check best practice. The carve-out: asking the model to
+  re-read its own reasoning is what you delete; requiring that factual claims trace to
+  something actually executed is what you keep. Anthropic's released production prompts
+  (de novo protein-binder design, Aug 2026,
+  huggingface.co/datasets/Anthropic/claude-protein-binder-design) drop the former and
+  keep a standing Behavior/Verification section for the latter — "'Verified' means you
+  ran a check and you have its output", "never write an external identifier from
+  memory", "lead with the unfavorable result". In any run where the model acts on the
+  world, that section earns its tokens.
 - **Say how long and how wide**: responses and written deliverables run long, and
   lowering effort does NOT reliably shorten them — length is a prompt instruction.
   Scope needs a bound too: state "deliver what I asked at the scope I asked".
 - **Cap delegation**: the previous generation under-delegated; the current one
   over-delegates. Remove any "delegate more" guidance and set an explicit ceiling
   — never spawn a subagent for work the main loop could finish in a few tool calls,
-  or to verify its own output.
+  or to verify its own output. One regime inverts this: long-running compute
+  campaigns, where the orchestrator should do no work itself. Anthropic's released
+  campaign prompts push every model call, GPU job, and billing query into sub-agents
+  and leave the orchestrator as a thin heartbeat-and-dispatch loop, so a stall in one
+  job cannot stall the coordinator. That is a scheduling constraint, not a prompting
+  one — it applies when work outlives a single context, not to ordinary chat turns.
 - **Assistant prefill is gone**: prefilling the final assistant turn to force a
   format is a 400 on Claude 4.6+. Use structured outputs (a JSON schema) instead.
 

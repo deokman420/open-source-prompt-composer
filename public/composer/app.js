@@ -152,6 +152,19 @@ const SUGGESTIONS = {
       "Deliver exactly what I asked — don't widen or transform the scope",
       "Keep it concise: lead with the outcome, skip preamble and recap",
       "Don't add a separate verification pass — check inline, report once",
+      // Evidentiary discipline, distinct from the self-check bullet above:
+      // Anthropic's released production prompts (protein-binder design, Aug
+      // 2026) keep a standing Behavior/Verification section even as they drop
+      // "double-check your answer". Don't re-read your own reasoning; DO refuse
+      // to assert what you did not establish.
+      "State only what you have established — every factual claim must trace to a step you actually ran",
+      "Never write an identifier (URL, DOI, ID, version, path) from memory — read it from the source or say you don't have it",
+      "Lead with the unfavorable result — headline the worst defensible reading of the data",
+      "\"Verified\" means you ran the check and have its output — otherwise say unverified",
+      // Quantitative bounds. Budget and clock are constraints too, not just
+      // prohibitions — the composition score counts these.
+      "Budget: stay under 20 tool calls and 10 minutes of wall-clock",
+      "Spend at most $5 of API credit on this task",
     ],
   },
   tools: {
@@ -694,19 +707,54 @@ function tsBacktickString(s) {
 }
 
 // JSON body builders for cURL targets.
-function anthropicJsonBody(model, prompt) {
-  return JSON.stringify({ model, max_tokens: 1024, messages: [{ role: "user", content: prompt }] }, null, 2);
+//
+// The composed frame goes in the SYSTEM slot, never the user turn. It is
+// standing instruction, and every provider has a dedicated field for it
+// (Anthropic top-level `system`, OpenAI role:"system", Gemini
+// systemInstruction); put it in a user message and it competes with the actual
+// request instead of framing it. Anthropic's released production prompts — the
+// de novo protein-binder design campaign, August 2026 — ship exactly this way:
+// one durable system document plus a short kickoff user message carrying the
+// run-specific details (T0, target name, volume paths, first actions). The user
+// turn in every export below is a placeholder for that kickoff.
+const KICKOFF =
+  "Replace with your kickoff message: the run-specific input, start time, paths, and IDs.";
+
+function anthropicJsonBody(model, system) {
+  return JSON.stringify(
+    { model, max_tokens: 1024, system, messages: [{ role: "user", content: KICKOFF }] },
+    null,
+    2,
+  );
 }
-function openaiJsonBody(model, prompt) {
-  return JSON.stringify({ model, messages: [{ role: "user", content: prompt }] }, null, 2);
+function openaiJsonBody(model, system) {
+  return JSON.stringify(
+    {
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: KICKOFF },
+      ],
+    },
+    null,
+    2,
+  );
 }
-function geminiJsonBody(prompt) {
-  return JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }, null, 2);
+function geminiJsonBody(system) {
+  return JSON.stringify(
+    {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: KICKOFF }] }],
+    },
+    null,
+    2,
+  );
 }
 
 // ----- 13 code generators -----
-function renderAnthropicCurl(prompt, m) {
-  const body = anthropicJsonBody(m.id, prompt);
+// Each receives the composed frame as `system`; the kickoff is the user turn.
+function renderAnthropicCurl(system, m) {
+  const body = anthropicJsonBody(m.id, system);
   return `curl https://api.anthropic.com/v1/messages \\
   -H "x-api-key: $ANTHROPIC_API_KEY" \\
   -H "anthropic-version: 2023-06-01" \\
@@ -716,104 +764,116 @@ ${body}
 JSON
 # Docs: https://docs.anthropic.com/en/api/messages`;
 }
-function renderAnthropicPython(prompt, m) {
+function renderAnthropicPython(system, m) {
   return `# pip install anthropic
 from anthropic import Anthropic
 
 client = Anthropic()  # reads ANTHROPIC_API_KEY from env
-prompt = ${pyTripleString(prompt)}
+system = ${pyTripleString(system)}
+kickoff = ${pyTripleString(KICKOFF)}
 
 message = client.messages.create(
     model="${m.id}",
     max_tokens=1024,
-    messages=[{"role": "user", "content": prompt}],
+    system=system,
+    messages=[{"role": "user", "content": kickoff}],
 )
 print(message.content[0].text)
 # Docs: https://docs.anthropic.com/en/api/messages`;
 }
-function renderAnthropicTs(prompt, m) {
+function renderAnthropicTs(system, m) {
   return `// npm i @anthropic-ai/sdk
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
-const prompt = ${tsBacktickString(prompt)};
+const system = ${tsBacktickString(system)};
+const kickoff = ${tsBacktickString(KICKOFF)};
 
 const message = await client.messages.create({
   model: "${m.id}",
   max_tokens: 1024,
-  messages: [{ role: "user", content: prompt }],
+  system,
+  messages: [{ role: "user", content: kickoff }],
 });
 const block = message.content[0];
 console.log(block.type === "text" ? block.text : "");
 // Docs: https://docs.anthropic.com/en/api/messages`;
 }
-function renderBedrockPython(prompt, m) {
+function renderBedrockPython(system, m) {
   return `# pip install boto3
 # Auth: standard AWS env vars / IAM role / ~/.aws/credentials
 import boto3
 
 client = boto3.client("bedrock-runtime", region_name="us-east-1")
-prompt = ${pyTripleString(prompt)}
+system = ${pyTripleString(system)}
+kickoff = ${pyTripleString(KICKOFF)}
 
 response = client.converse(
     modelId="${m.bedrock || m.id}",
-    messages=[{"role": "user", "content": [{"text": prompt}]}],
+    system=[{"text": system}],
+    messages=[{"role": "user", "content": [{"text": kickoff}]}],
     inferenceConfig={"maxTokens": 1024},
 )
 print(response["output"]["message"]["content"][0]["text"])
 # Docs: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html`;
 }
-function renderBedrockTs(prompt, m) {
+function renderBedrockTs(system, m) {
   return `// npm i @aws-sdk/client-bedrock-runtime
 // Auth: standard AWS env vars / IAM role / ~/.aws/credentials
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 
 const client = new BedrockRuntimeClient({ region: "us-east-1" });
-const prompt = ${tsBacktickString(prompt)};
+const system = ${tsBacktickString(system)};
+const kickoff = ${tsBacktickString(KICKOFF)};
 
 const response = await client.send(new ConverseCommand({
   modelId: "${m.bedrock || m.id}",
-  messages: [{ role: "user", content: [{ text: prompt }] }],
+  system: [{ text: system }],
+  messages: [{ role: "user", content: [{ text: kickoff }] }],
   inferenceConfig: { maxTokens: 1024 },
 }));
 console.log(response.output?.message?.content?.[0]?.text);
 // Docs: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html`;
 }
-function renderVertexPython(prompt, m) {
+function renderVertexPython(system, m) {
   return `# pip install "anthropic[vertex]"
 # Auth: gcloud auth application-default login (or service account)
 from anthropic import AnthropicVertex
 
 client = AnthropicVertex(project_id="YOUR_GCP_PROJECT", region="us-east5")
-prompt = ${pyTripleString(prompt)}
+system = ${pyTripleString(system)}
+kickoff = ${pyTripleString(KICKOFF)}
 
 message = client.messages.create(
     model="${m.vertex || m.id}",
     max_tokens=1024,
-    messages=[{"role": "user", "content": prompt}],
+    system=system,
+    messages=[{"role": "user", "content": kickoff}],
 )
 print(message.content[0].text)
 # Docs: https://docs.anthropic.com/en/api/claude-on-vertex-ai`;
 }
-function renderVertexTs(prompt, m) {
+function renderVertexTs(system, m) {
   return `// npm i @anthropic-ai/vertex-sdk
 // Auth: gcloud auth application-default login (or service account)
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
 
 const client = new AnthropicVertex({ projectId: "YOUR_GCP_PROJECT", region: "us-east5" });
-const prompt = ${tsBacktickString(prompt)};
+const system = ${tsBacktickString(system)};
+const kickoff = ${tsBacktickString(KICKOFF)};
 
 const message = await client.messages.create({
   model: "${m.vertex || m.id}",
   max_tokens: 1024,
-  messages: [{ role: "user", content: prompt }],
+  system,
+  messages: [{ role: "user", content: kickoff }],
 });
 const block = message.content[0];
 console.log(block.type === "text" ? block.text : "");
 // Docs: https://docs.anthropic.com/en/api/claude-on-vertex-ai`;
 }
-function renderOpenAICurl(prompt, m) {
-  const body = openaiJsonBody(m.id, prompt);
+function renderOpenAICurl(system, m) {
+  const body = openaiJsonBody(m.id, system);
   return `curl https://api.openai.com/v1/chat/completions \\
   -H "Authorization: Bearer $OPENAI_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -822,38 +882,46 @@ ${body}
 JSON
 # Docs: https://platform.openai.com/docs/api-reference/chat`;
 }
-function renderOpenAIPython(prompt, m) {
+function renderOpenAIPython(system, m) {
   return `# pip install openai
 from openai import OpenAI
 
 client = OpenAI()  # reads OPENAI_API_KEY from env
 # (also works with OpenAI-compatible servers: OpenAI(base_url="http://localhost:11434/v1"))
-prompt = ${pyTripleString(prompt)}
+system = ${pyTripleString(system)}
+kickoff = ${pyTripleString(KICKOFF)}
 
 response = client.chat.completions.create(
     model="${m.id}",
-    messages=[{"role": "user", "content": prompt}],
+    messages=[
+        {"role": "system", "content": system},
+        {"role": "user", "content": kickoff},
+    ],
 )
 print(response.choices[0].message.content)
 # Docs: https://platform.openai.com/docs/api-reference/chat`;
 }
-function renderOpenAITs(prompt, m) {
+function renderOpenAITs(system, m) {
   return `// npm i openai
 import OpenAI from "openai";
 
 const client = new OpenAI(); // reads OPENAI_API_KEY from env
 // (also works with OpenAI-compatible servers: new OpenAI({ baseURL: "http://localhost:11434/v1" }))
-const prompt = ${tsBacktickString(prompt)};
+const system = ${tsBacktickString(system)};
+const kickoff = ${tsBacktickString(KICKOFF)};
 
 const response = await client.chat.completions.create({
   model: "${m.id}",
-  messages: [{ role: "user", content: prompt }],
+  messages: [
+    { role: "system", content: system },
+    { role: "user", content: kickoff },
+  ],
 });
 console.log(response.choices[0].message.content);
 // Docs: https://platform.openai.com/docs/api-reference/chat`;
 }
-function renderGeminiCurl(prompt, m) {
-  const body = geminiJsonBody(prompt);
+function renderGeminiCurl(system, m) {
+  const body = geminiJsonBody(system);
   return `curl "https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=$GEMINI_API_KEY" \\
   -H "Content-Type: application/json" \\
   --data @- <<'JSON'
@@ -861,35 +929,39 @@ ${body}
 JSON
 # Docs: https://ai.google.dev/gemini-api/docs/text-generation`;
 }
-function renderGeminiPython(prompt, m) {
+function renderGeminiPython(system, m) {
   return `# pip install google-genai
 from google import genai
+from google.genai import types
 
 client = genai.Client()  # reads GEMINI_API_KEY from env
-prompt = ${pyTripleString(prompt)}
+system = ${pyTripleString(system)}
+kickoff = ${pyTripleString(KICKOFF)}
 
 response = client.models.generate_content(
     model="${m.id}",
-    contents=prompt,
+    config=types.GenerateContentConfig(system_instruction=system),
+    contents=kickoff,
 )
 print(response.text)
 # Docs: https://ai.google.dev/gemini-api/docs/text-generation`;
 }
-function renderGeminiTs(prompt, m) {
+function renderGeminiTs(system, m) {
   return `// npm i @google/genai
 import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({}); // reads GEMINI_API_KEY from env
-const prompt = ${tsBacktickString(prompt)};
+const system = ${tsBacktickString(system)};
+const kickoff = ${tsBacktickString(KICKOFF)};
 
 const response = await ai.models.generateContent({
   model: "${m.id}",
-  contents: prompt,
+  config: { systemInstruction: system },
+  contents: kickoff,
 });
 console.log(response.text);
 // Docs: https://ai.google.dev/gemini-api/docs/text-generation`;
 }
-
 const FORMAT_TARGETS = {
   markdown: { kind: "prompt", label: "Markdown", caption: "Markdown works in any agent; switch to XML when targeting Claude with mixed content." },
   xml:      { kind: "prompt", label: "XML",      caption: "XML is recommended when targeting Claude with mixed instructions, data, and examples." },
@@ -1306,8 +1378,15 @@ function computeScore(state) {
   if (firstWord && VERB_HEADS.has(firstWord)) score += 10;
 
   // 4) Bounds non-trivial (10)
+  // Two ways to bound a task, and the second is easy to miss: a prohibition
+  // ("don't touch the schema") or a measurable ceiling ("$10,000 +/-10%",
+  // "24 hours", "50-120 residues"). Anthropic's released production prompts
+  // are bounded almost entirely the second way, so scoring prohibitions alone
+  // gave a well-bounded prompt a zero here.
   const bounds = (state.bounds || "").toLowerCase();
-  if (bounds.length >= 20 && (/don'?t|\bno\b|^\s*-/m).test(bounds)) score += 10;
+  const QUANTIFIED =
+    /[$\u20ac\u00a3]\s*\d|\d+\s*%|\b\d[\d,.]*\s*(?:k|m|b|hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?|words?|chars?|characters?|tokens?|lines?|files?|rows?|items?|steps?|calls?|attempts?|retries|iterations?|usd|eur|gbp)\b|\b(?:under|below|at most|no more than|max(?:imum)?|within|between)\b[^.\n]{0,20}\d/;
+  if (bounds.length >= 20 && ((/don'?t|\bno\b|^\s*-/m).test(bounds) || QUANTIFIED.test(bounds))) score += 10;
 
   // 5) Task specificity (10)
   const task = state.task || "";

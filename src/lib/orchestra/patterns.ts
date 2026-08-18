@@ -53,7 +53,8 @@ export const ORCH_PATTERNS: Record<PatternId, PatternDef> = {
         handoffFormat: "summary",
         maxWorkers: 5,
         terminationRule:
-          "Stop when every dispatched worker returns a summary, or after 2 dispatch rounds, whichever first.",
+          "Stop when every dispatched worker returns a summary, or after 2 dispatch rounds, whichever first. " +
+          "Halt and report instead of retrying if the same worker fails 3 times, or if any worker returns nothing for 2 rounds.",
         sharedMemory: true,
       },
     }),
@@ -102,7 +103,9 @@ export const ORCH_PATTERNS: Record<PatternId, PatternDef> = {
       coordination: {
         handoffFormat: "summary",
         maxWorkers: 6,
-        terminationRule: "Stop after the last agent completes.",
+        terminationRule:
+          "Stop after the last agent completes. Halt the pipeline and report the failing stage if any stage " +
+          "returns empty or malformed output twice — do not pass a broken artifact downstream.",
         sharedMemory: false,
       },
     }),
@@ -150,7 +153,9 @@ Input ──┼──▶ Perspective 2 ──┼──▶ Merge
       coordination: {
         handoffFormat: "summary",
         maxWorkers: 5,
-        terminationRule: "Run all perspectives in parallel; merge when all return.",
+        terminationRule:
+          "Run all perspectives in parallel; merge when all return. If a perspective fails twice, merge without it " +
+          "and say so in the output — never block the merge on one branch, never silently drop it.",
         sharedMemory: true,
       },
     }),
@@ -189,7 +194,9 @@ Input ──┼──▶ Perspective 2 ──┼──▶ Merge
       coordination: {
         handoffFormat: "transcript",
         maxWorkers: 4,
-        terminationRule: "End on convergence or after 8 total turns.",
+        terminationRule:
+          "End on convergence or after 8 total turns. Halt early and report the deadlock if two consecutive rounds " +
+          "add no new argument — repetition is a stop condition, not a reason for another round.",
         sharedMemory: true,
       },
     }),
@@ -222,7 +229,9 @@ Input ──┼──▶ Perspective 2 ──┼──▶ Merge
       coordination: {
         handoffFormat: "json",
         maxWorkers: 6,
-        terminationRule: "Stop when the request is fully resolved or all specialists decline.",
+        terminationRule:
+          "Stop when the request is fully resolved or all specialists decline. Halt and hand back to the user if the " +
+          "request is routed 3 times without resolution — a routing loop is a failure, not progress.",
         sharedMemory: false,
       },
     }),

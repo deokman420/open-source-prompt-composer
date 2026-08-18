@@ -59,7 +59,8 @@ export const ORCH_TEMPLATES: Record<string, TemplateDef> = {
         handoffFormat: "json",
         maxWorkers: 4,
         terminationRule:
-          "Stop when Verification returns passes:true or after 2 retry rounds.",
+          "Stop when Verification returns passes:true or after 2 retry rounds. Halt and report the outstanding " +
+          "blocking_issues rather than shipping unverified work when the retries are exhausted.",
         sharedMemory: true,
       },
     }),
