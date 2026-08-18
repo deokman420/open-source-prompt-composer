@@ -34,7 +34,7 @@ The shared vocabulary across the whole app. A strong prompt fills six slots:
 Separating the slots stops the model confusing them. Every tool below feeds this frame.
 
 ## Compose (/compose)
-The single-prompt builder. Available to any signed-in user.
+The single-prompt builder. No account, no sign-in — open it and start typing.
 - How to use it: fill the R-G-C-B-T-S slots; the "Add-on slots" expander adds Tools,
   Format, and Clarify; the Examples block takes 1-3 input/output pairs. A live preview
   assembles the structured prompt as you type, with a rough token estimate.
@@ -187,9 +187,12 @@ their provider account (BYOK) — adding a key here never bills them through us.
 
 ## Drafts
 Compose, Tool Builder, Context Pipeline, Orchestra, Eval, and Loops drafts autosave.
-Signed-in users get their drafts synced to their account (kind-scoped) so they persist
-across devices; there are per-kind caps on how many drafts are kept. The /drafts library
-has a tab per kind (search, rename, open back into the editor).
+They are written to this browser's IndexedDB and nowhere else — there is no account and
+no cross-device sync, so a draft saved on one machine does not appear on another. Set a
+passphrase at /settings and they are encrypted at rest with the rest of the vault; clear
+your browser data and they are gone, so use Settings > Backup & restore if you want a
+copy. Compose keeps the 50 most recent drafts and drops the oldest past that. The
+/drafts library has a tab per kind (search, rename, open back into the editor).
 
 ## Common questions
 - "How do I get an API key / where do I get one for <provider>?" → it's minted at the
